@@ -37,6 +37,52 @@ own; the `r/` ones are the product.
 | [`r/offerer`](r/offerer) | A fixture that matters: a *second* realm extending the same governor from its own package, proving the extension point works across a realm boundary rather than only within one. |
 | [`r/ccwrap`](r/ccwrap) | Makes a court coin tradeable on a DEX without handing the DEX any authority inside the court. |
 
+### How the governance layer fits together
+
+The `/p/` half is reusable: any realm can import it and get a checkpointed voting
+token and a governor over it without forking anything. The `/r/` half is one
+worked consumer.
+
+**checkpoint** remembers what a number used to be, as of an epoch. Two points
+inline plus a paged archive, so an account whose balance has not moved since it
+was created answers without touching the archive at all. No crossing functions
+and no realm state — which is what makes it the half that can be a `/p/` package.
+
+**grc20votes** is the ledger: balances, allowances, one-hop delegation with self
+as the default, and a checkpoint of voting power on every change. A `*Ledger` is
+a value the consuming realm allocates, so one realm can run several — a court per
+coin — and each names its own token.
+
+It takes an acting address rather than reading one. A `/p/` package cannot declare
+a crossing function and so has no caller to authenticate; the realm above holds
+the `cur realm`, checks `IsCurrent()`, and passes the address in. That is the
+split, and it is why the ledger needs no capability of its own.
+
+**governor** is the engine: the kind registry, every proposal, the tally
+arithmetic, the rules, the slot sweep and the pages — over any `Electorate` and
+`Token`, whether that is a ledger or a council with one address and one vote.
+
+It cannot run a kind by itself. Handing a kind its sub-realm token needs a live
+`cur`, which a pure package does not have, so the realm supplies a one-line
+`Dispatch`. What that dispatcher receives is a kind, a subpath and a payload —
+never a pointer into governor or ledger state.
+
+**govern** is one realm consuming these. It owns what only a realm can: the
+entrypoints, the deployer captured at init, the minter policy, and the governor
+that decides by reading the ledger's history at an epoch sealed when the question
+was asked — which is what stops voting weight being bought once a fight is
+visible. `r/govern` is 432 lines of non-test code; everything else it used to
+hold is `p/governor` now.
+
+A proposal is a kind name and a string. Kinds are registered by realms and adopted
+by vote, so an ordinary account can propose without being able to write Gno —
+which matters, because `MsgCall.Args` is `[]string`, and any entrypoint taking a
+struct has silently restricted proposing to people who can deploy code.
+
+**offerer** is the worked example: a realm that is *not* `govern` publishing a
+power for the holders to adopt. It exists as a realm rather than a test because
+`Offer` takes an interface, and a transaction cannot carry one.
+
 Each package declares its on-chain path in its `gnomod.toml` — `gno.land/r/kourt/…`
 and `gno.land/p/kourt/…/v0`.
 
