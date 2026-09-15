@@ -4,10 +4,11 @@ package kourtv2
 //
 // THE PROBLEM IT REMOVES. cs.stakers is keyed addr|side INSIDE each claimState
 // (claim.gno), so it answers "who stakes this claim" and cannot answer "which claims
-// does this address stake". A client had to visit every claim and look: web/index.html
-// probed four reads per claim id over a window of the newest SCAN_DEPTH = 100 claims per
+// does this address stake". A client had to visit every claim and look: the site
+// probed four reads per claim id over a window of the newest hundred claims per
 // court, and then told the holder "older positions and older pulls are not found
-// either". On a court with more claims than that window, a holder could not see their
+// either". (That client is the application repository's overlay, not this tree —
+// the figure was its SCAN_DEPTH.) On a court with more claims than that window, a holder could not see their
 // own position at all. That is not a slow page, it is a page that cannot answer the
 // question — about their own money.
 //

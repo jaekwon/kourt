@@ -1467,10 +1467,6 @@ control("a Court field nothing reads or writes", COURT,
         argv=["python3", DEADFIELDS])
 
 print("\ncheck-web-constants")
-control("the realm stops rounding the curve up", "p/curve/curve.gno",
-        "lo2, carry := bits.Add64(lo, m-1, 0)",
-        "lo2, carry := bits.Add64(lo, 0, 0)",
-        "stopped doing", argv=["python3", WEBCONST])
 
 print("\ncheck-block-time")
 # TWO FAILURE MODES, and they are not the same shape, so both are armed.
@@ -1520,15 +1516,6 @@ control("a package is staged for mutation with no corpus row", MUTATEPY,
         "staged for mutation and never mutated", argv=["python3", MUTSCOPE])
 
 print("\ncheck-media-hosts")
-# The hosts a claim's evidence may live on are written down three times — the
-# realm refuses to STORE a mirror elsewhere, the overlay refuses to OFFER one,
-# and the page's CSP is what the browser actually obeys. Drift between them is
-# invisible in both directions: add a host to the realm and forget the CSP and
-# the author sees a broken image with no error anywhere, because the browser's
-# refusal never reaches the chain. These three arms are one per copy.
-control("the realm allows a host the overlay does not", MEDIAGNO,
-        '"ipfs.io",', '"ipfs.io",\n\t"drifted.example",',
-        "disagree", argv=["python3", MEDIAHOSTS])
 
 print("\ncheck-addr-shapes")
 # An address is recognised twice — the claim prefilter floors a claim that names
@@ -2141,9 +2128,15 @@ control("an exemption for a guard that is gone", GRUN,
         '    "check-isolation.py":',
         '    "check-gone-forever.py": "stale",\n    "check-isolation.py":',
         "no such guard exists", argv=["python3", GRUN])
+# check-interrealm, NOT check-web-css. The arm named a web guard, which went to
+# the application repository with the overlay it reads — so the plant produced an
+# exemption for a guard that does not exist, the guard said "no such guard
+# exists" instead of "runs it now", and the arm stopped testing the shadowing
+# branch while still looking like it did. Any guard `check` actually runs will do;
+# this one is named three lines into the guards target.
 control("an exemption shadowing a guard check runs", GRUN,
         '    "check-isolation.py":',
-        '    "check-web-css.py": "stale",\n    "check-isolation.py":',
+        '    "check-interrealm.py": "stale",\n    "check-isolation.py":',
         "runs it now", argv=["python3", GRUN])
 # Fail CLOSED, the rule every census here carries: a scan that matches nothing
 # must not report a clean tree.

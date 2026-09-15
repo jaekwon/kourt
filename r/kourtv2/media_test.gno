@@ -248,10 +248,18 @@ const clientImageLine = "img|111111111111111111111111111111111111111111111111111
 
 const clientVideoLine = "vid|||0|0|0|the hearing|https://i.imgur.com/v.mp4"
 
-// THE OTHER HALF OF THE SEAM. web/tests/media_test.js holds this exact string as
-// `fromChain` and asserts the overlay parses it into a card. If encodeMedia's
-// output drifts — a renamed field, a dropped one, whitespace — that suite is
-// what fails, and this is what tells you why.
+// THE OTHER HALF OF THE SEAM IS IN ANOTHER REPOSITORY. web/tests/media_test.js,
+// in the application repo (jaekwon/cryptocourt, which mounts this one at realm/),
+// holds these exact strings as `asFiledImage` and `fromChain` and asserts the
+// overlay parses them into a card. If encodeMedia's output drifts — a renamed
+// field, a dropped one, whitespace — that suite is what fails, and this is what
+// tells you why.
+//
+// NOTHING MECHANICAL HOLDS THE TWO SIDES TOGETHER, and that got worse when the
+// repositories split: they used to sit in one tree, where editing one made the
+// other visible. Both sides are prose citations of each other now. Changing the
+// payload here means changing it there in the same breath, and no check will
+// remind you.
 func TestWhatTheOverlayReadsIsWhatThisEmits(cur realm, t *testing.T) {
 	items := parseMediaArg(clientImageLine)
 	got := encodeMedia(items)
