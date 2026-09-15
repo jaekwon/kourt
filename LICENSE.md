@@ -32,9 +32,13 @@ For this Covered Work the Licensor designates:
 
 -   Attribution URL: <https://kourt.xyz>
 -   Attribution words: "built on Kourt"
+-   Attribution Mark: the badge distributed with this work at
+    `brand/built-on-kourt.svg` — the Attribution words set beside the empty
+    throne device, followed by the "Kourt" wordmark in gold (#9a6f12), within a
+    rounded enclosure.
 
-The Attribution Notice shall, at minimum, include the Attribution words above as
-an active hyperlink to the Attribution URL.
+The Attribution Notice shall consist of the Attribution Mark, reproduced as
+distributed, and shall link to the Attribution URL.
 
 WHERE IT MUST APPEAR. A court is read one claim at a time, so a notice a reader
 never passes is not attribution. The Attribution Notice must therefore appear:
@@ -50,11 +54,31 @@ never passes is not attribution. The Attribution Notice must therefore appear:
     opacity, or size that makes it materially harder to read than the
     surrounding interface text.
 
-HOW PROMINENT. The Attribution Notice must be at least as conspicuous as the
-most prominent branding, wordmark, product name, or credit that the operator of
-the Applicable Work displays for itself in the same interface, measured by
-placement, size, and contrast. Where the Applicable Work displays its own name
-in a header, the Attribution Notice must appear in that same header.
+HOW PROMINENT. The Attribution Notice need not rival the operator's own
+branding, and this License does not require that it be the most conspicuous
+element on the screen. It must be plainly legible and unaltered:
+
+-   rendered no less than 20 device-independent pixels tall, or scaled
+    proportionally so that the Attribution words stay legible at the reader's
+    default zoom;
+-   kept in its designated proportions, with clear space on every side of at
+    least one quarter of the Mark's height, free of other content;
+-   not recoloured, re-lettered, redrawn, rotated, outlined, stretched, cropped
+    or otherwise modified — except that the "built on" text and the throne
+    device may take the surrounding text colour where the Mark would otherwise
+    be illegible against its ground. The "Kourt" wordmark remains in the
+    designated gold.
+
+PERMISSION TO USE THE MARK. The Licensor grants you a limited, worldwide,
+royalty-free, non-exclusive, revocable licence to reproduce and display the
+Attribution Mark solely to satisfy this attribution requirement. This conveys no
+other right in the Licensor's names, logos or trade dress, and displaying the
+Mark as required here implies no endorsement, sponsorship or affiliation. The
+Licensor may revoke this permission as to any party who uses the Mark to suggest
+endorsement or who modifies it contrary to the terms above; revocation does not
+relieve that party of the attribution requirement, which such party must then
+satisfy by displaying the Attribution words as an active hyperlink to the
+Attribution URL.
 
 IN PROMOTION. Any material that promotes the Covered Work or an Applicable Work
 — a website, an application listing, a README, an announcement, a social media
@@ -62,8 +86,13 @@ profile, or a press description — must state the Attribution words and make th
 Attribution URL available as an active link wherever links are possible.
 
 
-The Attribution URL and related attribution terms described herein are
-determined exclusively by the Licensor. In cases of ambiguity, forks, or
+The Attribution URL, the Attribution words, and the Attribution Mark are
+determined exclusively by the Licensor, who may at any time designate a
+successor to any of them — including a different domain — by publishing the new
+designation at the then-current Attribution URL and in the LICENSE file of the
+Covered Work's canonical repository. You must adopt a published new designation
+within ninety (90) days, and until you do, continued display of the superseded
+designation satisfies this requirement. In cases of ambiguity, forks, or
 disputes regarding attribution, the designation made by the Licensor shall
 conclusively govern.
 
