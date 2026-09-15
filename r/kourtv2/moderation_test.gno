@@ -1,0 +1,1485 @@
+package kourtv2
+
+import (
+	"chain/runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	testutils "gno.land/p/nt/testutils/v0"
+	uassert "gno.land/p/nt/uassert/v0"
+)
+
+// A hidden claim's lifecycle is byte-identical to an unhidden one's (I1): hiding
+// changes no money-path read, and the claim still dead-closes and refunds.
+// Enforces I2 (a moderation entrypoint moves no money) and part of I1 (a
+// hidden claim's lifecycle is byte-identical, including the refund).
+func TestModHideDoesNotTouchLifecycle(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mod-l-alice")
+	c := testCourt(cur, "modl", alice, 10_000_000_000)
+
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "modl", "a claim to hide")
+	dep := c.params.minClaimDepositCC
+	fee := dep * depositFeeBps / 10000
+	escrow0 := c.coin.BalanceOf(c.escrow)
+
+	// alice is the creator, hence the sole 1-of-1 moderator.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "modl", id, "off-topic")
+	if !HiddenFromListing("modl", id) {
+		t.Fatal("the claim should be hidden from listings")
+	}
+	// Money-path reads unchanged.
+	if ClaimAuthor("modl", id) != alice || ClaimClosed("modl", id) {
+		t.Fatal("hiding must not touch author/closed state")
+	}
+	if c.coin.BalanceOf(c.escrow) != escrow0 {
+		t.Fatal("hiding must not move escrow")
+	}
+	// Lifecycle still runs: dead-close after the timeout refunds the deposit.
+	testing.SkipHeights(deadClaimTimeout + 1)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	CloseDeadClaim(cross(cur), "modl", id)
+	if !ClaimClosed("modl", id) {
+		t.Fatal("a hidden claim must still dead-close")
+	}
+	if c.coin.BalanceOf(c.escrow) != escrow0-dep-fee {
+		t.Fatal("the deposit must refund and the fee burn, hidden or not")
+	}
+	if ModLogLen("modl", id) != 1 {
+		t.Fatal("the hide should have logged exactly one row (I6)")
+	}
+}
+
+// Unhide clears the court's own bit; the log grows.
+func TestModUnhide(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mod-u-alice")
+	testCourt(cur, "modu", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "modu", "hide then unhide")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "modu", id, "spam")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	UnhideItem(cross(cur), "modu", id, "on reflection, fine")
+	if HiddenFromListing("modu", id) {
+		t.Fatal("unhide should clear the court bit")
+	}
+	if ModLogLen("modu", id) != 2 {
+		t.Fatal("hide + unhide = two log rows")
+	}
+}
+
+// The m-of-n decision rule (round-7 R3): with 2-of-3, one moderator's hide does
+// nothing; a second distinct moderator's approval fires it.
+func TestModMofN(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("mod-n-creator")
+	m1 := testutils.TestAddress("mod-n-1")
+	m2 := testutils.TestAddress("mod-n-2")
+	m3 := testutils.TestAddress("mod-n-3")
+	testCourt(cur, "modn", creator, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(creator))
+	id := OpenClaim(cross(cur), "modn", "needs two mods")
+
+	testing.SetRealm(testing.NewUserRealm(creator))
+	AppointMods(cross(cur), "modn", 2, m1, m2, m3)
+	if m, n := ModThreshold("modn"); m != 2 || n != 3 {
+		t.Fatalf("threshold = %d-of-%d", m, n)
+	}
+	// A non-member cannot act.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	uassert.AbortsContains(t, cur, "not a moderator", func() {
+		HideItem(cross(cur), "modn", id, "x")
+	})
+	// One approval: not yet hidden.
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "modn", id, "off-topic")
+	if HiddenFromListing("modn", id) {
+		t.Fatal("one of two approvals must not hide")
+	}
+	// The same member re-approving is a no-op.
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "modn", id, "off-topic")
+	if HiddenFromListing("modn", id) {
+		t.Fatal("a repeat approval must not reach the threshold")
+	}
+	// A second distinct member fires it.
+	testing.SetRealm(testing.NewUserRealm(m2))
+	HideItem(cross(cur), "modn", id, "off-topic")
+	if !HiddenFromListing("modn", id) {
+		t.Fatal("two distinct approvals should hide")
+	}
+}
+
+// Suspension masks the set and refuses its writes except clearing own bits
+// (I10); global recovery lifts the suspension.
+func TestModSuspension(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mod-s-alice")
+	testCourt(cur, "mods", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "mods", "suspend test")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "mods", id, "spam")
+
+	c := mustCourt("mods")
+	suspendSet(c, alice) // internal hook (module 7 calls it via a verdict)
+	if !CourtSuspended("mods") {
+		t.Fatal("the set should be suspended")
+	}
+	// A suspended set cannot hide a second claim...
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id2 := OpenClaim(cross(cur), "mods", "second")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "suspended", func() {
+		HideItem(cross(cur), "mods", id2, "x")
+	})
+	// ...but it CAN clear its own bit (de-escalatory).
+	testing.SetRealm(testing.NewUserRealm(alice))
+	UnhideItem(cross(cur), "mods", id, "clearing own bit under suspension")
+	if HiddenFromListing("mods", id) {
+		t.Fatal("clearing own bit must survive suspension")
+	}
+	// Global recovery lifts the suspension.
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	ClearCourtSuspension(cross(cur), "mods")
+	if CourtSuspended("mods") {
+		t.Fatal("global recovery should lift the suspension")
+	}
+}
+
+// Purge is m-of-n and tombstones text on every surface (I11), without touching
+// the claim's money state (I1).
+func TestModPurgeMofN(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mod-p-alice")
+	g2 := testutils.TestAddress("mod-p-g2")
+	c := testCourt(cur, "modp", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "modp", "purge me")
+	escrow0 := c.coin.BalanceOf(c.escrow)
+
+	// Grow the global DAO to 2 members, purge threshold 2.
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), g2)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	// One purge approval: not yet purged.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	PurgeClaim(cross(cur), "modp", id, "CSAM")
+	if ClaimPurged("modp", id) {
+		t.Fatal("one of two purge approvals must not purge")
+	}
+	// The second global member fires it.
+	testing.SetRealm(testing.NewUserRealm(g2))
+	PurgeClaim(cross(cur), "modp", id, "CSAM")
+	if !ClaimPurged("modp", id) || !TextRedacted("modp", id) {
+		t.Fatal("two approvals should purge and redact")
+	}
+	// Money untouched (I1): escrow still holds the deposit+fee.
+	if c.coin.BalanceOf(c.escrow) != escrow0 {
+		t.Fatal("purge must not move money")
+	}
+}
+
+// Global redaction: single-key to set, explicit clear, and clear-any recovery.
+// Enforces I3's global arm: a global redact removes TEXT and nothing else.
+func TestModGlobalRedactAndRecovery(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mod-g-alice")
+	testCourt(cur, "modg", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "modg", "redact me")
+	// Court-hide it too, to test clear-any reaching the court bit.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "modg", id, "spam")
+
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "modg", id, "DMCA")
+	if !TextRedacted("modg", id) || !HiddenFromListing("modg", id) {
+		t.Fatal("global hide should redact and hide")
+	}
+	// THE TEXT ITSELF, not just the bit. This test asserted the flags and never the
+	// rendering, so the substitution that makes a redaction mean anything — the title
+	// replaced by a withheld notice — could be deleted with nothing noticing. A bit
+	// that is set while the words still render is not a redaction.
+	if got := claimTitleFor(mustCourt("modg"), mustClaim(mustCourt("modg"), id)); got != "[text withheld]" {
+		t.Fatalf("a globally redacted claim must render a withheld notice, got %q", got)
+	}
+	// Clear-any recovery lifts the court + meta bits (not the global bit).
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	ClearAnyBit(cross(cur), "modg", id)
+	if HiddenFromListing("modg", id) == false {
+		t.Fatal("the global bit still hides after clear-any (global not cleared)")
+	}
+	// The explicit global clear is the only reversal.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalClear(cross(cur), "modg", id)
+	if TextRedacted("modg", id) || HiddenFromListing("modg", id) {
+		t.Fatal("global clear should fully un-redact and un-hide")
+	}
+	// ...and the words come back, which is the half that makes the assertion above a
+	// substitution rather than a permanent blank.
+	if got := claimTitleFor(mustCourt("modg"), mustClaim(mustCourt("modg"), id)); got != "redact me" {
+		t.Fatalf("a cleared claim must render its title again, got %q", got)
+	}
+}
+
+// Set-level global recovery (setmods vet, unanimous): ClearAnyBit is per-claim,
+// so a hostile SET needs its own cure. ResetModSet disarms it — and does not
+// appoint, so the court's own electorate still chooses who moderates.
+func TestResetModSetIsTheSetLevelCure(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("rms-creator")
+	puppet := testutils.TestAddress("rms-puppet")
+	g2 := testutils.TestAddress("rms-g2")
+	testCourt(cur, "rms", creator, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(creator))
+	AppointMods(cross(cur), "rms", 1, puppet)
+	if !IsCourtMod("rms", puppet) {
+		t.Fatal("the puppet should be seated for the test")
+	}
+
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), g2)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	// One approval is not enough.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	ResetModSet(cross(cur), "rms")
+	if !IsCourtMod("rms", puppet) {
+		t.Fatal("one of two approvals must not reset the set")
+	}
+	// The second fires it: the set is emptied, so nothing can act.
+	testing.SetRealm(testing.NewUserRealm(g2))
+	ResetModSet(cross(cur), "rms")
+	if IsCourtMod("rms", puppet) {
+		t.Fatal("the reset must disarm the hostile set")
+	}
+	if _, n := ModThreshold("rms"); n != 0 {
+		t.Fatalf("the set should be empty, got n=%d", n)
+	}
+}
+
+// A suspended creator may not re-appoint around the suspension: AppointMods is
+// free and creator-only, so allowing it would make meta's bonded, voted disarm
+// a no-op.
+func TestSuspendedCreatorCannotReappoint(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("scr-creator")
+	other := testutils.TestAddress("scr-other")
+	testCourt(cur, "scr", creator, 10_000_000_000)
+	c := mustCourt("scr")
+	suspendSet(c, creator)
+	testing.SetRealm(testing.NewUserRealm(creator))
+	uassert.AbortsContains(t, cur, "suspended", func() {
+		AppointMods(cross(cur), "scr", 1, other)
+	})
+}
+
+// A meta-installed set may not seed claims (setmods vet 2/3): seeding waives
+// the deposit AND fee while winner/answerer slices still mint, so a captured
+// meta must not be able to hand puppets a free claim faucet. Locally-installed
+// sets seed normally.
+func TestMetaInstalledSetCannotSeed(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("mis-creator")
+	puppet := testutils.TestAddress("mis-puppet")
+	c := testCourt(cur, "mis", creator, 10_000_000_000)
+	cm := ensureMod(c)
+
+	// Seeding works for the creator-appointed set.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	OpenClaimSeeded(cross(cur), "mis", "creator seed is fine")
+
+	// Now simulate a meta verdict seating a puppet set.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	cand := RegisterModCandidate(cross(cur), "mis", 1, puppet)
+	installModSet(c, cm, cm.mustCandidate(cand), 100, false) // byElection=false => meta
+	testing.SetRealm(testing.NewUserRealm(puppet))
+	uassert.AbortsContains(t, cur, "may not seed", func() {
+		OpenClaimSeeded(cross(cur), "mis", "puppet faucet")
+	})
+	// The puppet can still do ordinary render-layer moderation.
+	c.coin.Mint(puppet, 10_000_000)
+	testing.SetRealm(testing.NewUserRealm(puppet))
+	id := OpenClaim(cross(cur), "mis", "ordinary claim")
+	testing.SetRealm(testing.NewUserRealm(puppet))
+	HideItem(cross(cur), "mis", id, "puppet hides")
+	if !HiddenFromListing("mis", id) {
+		t.Fatal("a meta-installed set still moderates; only seeding is denied")
+	}
+}
+
+// Re-installing the SAME set does not escape a suspension; installing a
+// different one does (otherwise suspension is escapable at zero cost).
+func TestInstallClearsSuspensionOnlyIfSetChanges(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("ics-creator")
+	a1 := testutils.TestAddress("ics-a1")
+	a2 := testutils.TestAddress("ics-a2")
+	c := testCourt(cur, "ics", creator, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(creator))
+	AppointMods(cross(cur), "ics", 1, a1)
+	cm := ensureMod(c)
+
+	suspendSet(c, creator)
+	if !CourtSuspended("ics") {
+		t.Fatal("set should be suspended")
+	}
+	// Re-installing the identical set must NOT clear the suspension.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	same := RegisterModCandidate(cross(cur), "ics", 1, a1)
+	installModSet(c, cm, cm.mustCandidate(same), 200, true)
+	if !CourtSuspended("ics") {
+		t.Fatal("re-seating the judged set must not escape the suspension")
+	}
+	// Installing a genuinely different set clears it.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	diff := RegisterModCandidate(cross(cur), "ics", 1, a2)
+	installModSet(c, cm, cm.mustCandidate(diff), 300, true)
+	if CourtSuspended("ics") {
+		t.Fatal("installing a different set delivers it ARMED")
+	}
+
+	// ---- the THRESHOLD is not a membership change (v0.52) -------------------
+	// Both installs above are 1-of-1, so neither can express this case at all.
+	// Re-seating the SAME addresses under a LOOSER rule is not a remedy, it is a
+	// promotion — and it used to clear the suspension, because the identity
+	// folded m into the membership string and any difference lifted the flag.
+	//
+	// THREE members, not two, because the comparison is against the threshold
+	// that was JUDGED and a 2-member set cannot express "strictly tighter than
+	// what was judged" in both directions.
+	//
+	// The trio is seated the way the arms above install, NOT via AppointMods:
+	// both installs above passed byElection=true, and an election spends the
+	// creator's appointment power for good. (AppointMods also refuses on a
+	// suspended set, so it is doubly unavailable here.)
+	b1 := testutils.TestAddress("ics-b1")
+	b2 := testutils.TestAddress("ics-b2")
+	b3 := testutils.TestAddress("ics-b3")
+	testing.SetRealm(testing.NewUserRealm(creator))
+	strict := RegisterModCandidate(cross(cur), "ics", 3, b1, b2, b3)
+	installModSet(c, cm, cm.mustCandidate(strict), 350, true)
+	suspendSet(c, creator) // judged: {b1,b2,b3} at 3-of-3
+	if m, n := ModThreshold("ics"); m != 3 || n != 3 {
+		t.Fatalf("fixture: the judged set must be 3-of-3, got %d-of-%d", m, n)
+	}
+
+	// LOOSENED to 1-of-3. The install lands, and the suspension must survive it:
+	// otherwise a judged trio buys back unilateral power without surrendering a
+	// single seat, which is the opposite of the remedy.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	loose := RegisterModCandidate(cross(cur), "ics", 1, b1, b2, b3)
+	installModSet(c, cm, cm.mustCandidate(loose), 400, true)
+	if m, _ := ModThreshold("ics"); m != 1 {
+		t.Fatalf("fixture: the loosened install must actually have LANDED, got m=%d", m)
+	}
+	if !CourtSuspended("ics") {
+		t.Fatal("loosening the threshold on the judged membership must not escape the suspension")
+	}
+
+	// And RETURNING to the judged 3-of-3 does not re-arm either. The comparison
+	// is against what was judged, not against the previous install — so no
+	// sequence of threshold moves that ends at or below the judged rule can walk
+	// a set out of its own suspension. Only a membership change or an explicit
+	// unsuspend does that.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	back := RegisterModCandidate(cross(cur), "ics", 3, b1, b2, b3)
+	installModSet(c, cm, cm.mustCandidate(back), 450, true)
+	if !CourtSuspended("ics") {
+		t.Fatal("re-seating the judged threshold is the judged set again; it must not re-arm")
+	}
+
+	// THE POSITIVE CONTROL. Judge the loose configuration, then tighten past it:
+	// 2-of-3 is strictly less unilateral power than the 1-of-3 that was judged,
+	// which is a genuine structural remedy and re-arms. Without this arm the
+	// three above would pass just as well against a rule that NEVER lifts on an
+	// unchanged membership — a permanent sentence rather than a judgment.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	loosen2 := RegisterModCandidate(cross(cur), "ics", 1, b1, b2, b3)
+	installModSet(c, cm, cm.mustCandidate(loosen2), 500, true)
+	suspendSet(c, creator) // judged afresh: {b1,b2,b3} at 1-of-3
+	testing.SetRealm(testing.NewUserRealm(creator))
+	tighter := RegisterModCandidate(cross(cur), "ics", 2, b1, b2, b3)
+	installModSet(c, cm, cm.mustCandidate(tighter), 550, true)
+	if CourtSuspended("ics") {
+		t.Fatal("tightening strictly past the judged rule is a real remedy and must re-arm the set")
+	}
+}
+
+// The global DAO can SET a suspension, not only clear one (m-of-n).
+func TestGlobalSuspendSet(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("gss-creator")
+	g2 := testutils.TestAddress("gss-g2")
+	testCourt(cur, "gss", creator, 10_000_000_000)
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), g2)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalSuspendSet(cross(cur), "gss")
+	if CourtSuspended("gss") {
+		t.Fatal("one of two approvals must not suspend")
+	}
+	testing.SetRealm(testing.NewUserRealm(g2))
+	GlobalSuspendSet(cross(cur), "gss")
+	if !CourtSuspended("gss") {
+		t.Fatal("two approvals should suspend the set")
+	}
+}
+
+// currentSetID concatenates every member into one string, so it costs O(n²) —
+// and it sits on the SUSPEND path. An uncapped set could therefore be grown
+// until the global DAO's and the meta court's emergency hammer no longer fit in
+// a transaction: the set makes itself too big to suspend. The cap is enforced at
+// canonicalMembers, the one chokepoint both entry points share.
+func TestModSetSizeIsCapped(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("cap-creator")
+	testCourt(cur, "capset", creator, 10_000_000_000)
+
+	over := make([]address, maxModSetSize+1)
+	for i := range over {
+		over[i] = testutils.TestAddress("cap-m" + strconv.Itoa(i))
+	}
+	testing.SetRealm(testing.NewUserRealm(creator))
+	uassert.AbortsContains(t, cur, "at most 32 members", func() {
+		AppointMods(cross(cur), "capset", 1, over...)
+	})
+	// The candidate registry is the other way in, and it must be capped too —
+	// otherwise the same set arrives via a meta setmods install.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	uassert.AbortsContains(t, cur, "at most 32 members", func() {
+		RegisterModCandidate(cross(cur), "capset", 1, over...)
+	})
+	// Exactly at the cap still works, so the bound is off-by-one clean.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	AppointMods(cross(cur), "capset", 1, over[:maxModSetSize]...)
+	if !IsCourtMod("capset", over[0]) {
+		t.Fatal("a set exactly at the cap must install")
+	}
+}
+
+// A moderation row must be allocated only once the m-of-n actually FIRES.
+// Allocating on the first approval let one member of an m>1 set mint an empty
+// claimMod per claim: rows carrying no act, costing storage, that renderModLog
+// and every claims-tree walk must then step over. One member, many claims, no
+// decision — pure griefing of a set the griefer cannot otherwise act for.
+func TestUnfiredApprovalAllocatesNothing(cur realm, t *testing.T) {
+	creator := testutils.TestAddress("noalloc-creator")
+	m2 := testutils.TestAddress("noalloc-m2")
+	c := testCourt(cur, "noalloc", creator, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(creator))
+	AppointMods(cross(cur), "noalloc", 2, creator, m2)
+
+	testing.SetRealm(testing.NewUserRealm(creator))
+	id := OpenClaim(cross(cur), "noalloc", "a claim one mod dislikes")
+	cm := ensureMod(c)
+	before := cm.claims.Size()
+
+	testing.SetRealm(testing.NewUserRealm(creator))
+	HideItem(cross(cur), "noalloc", id, "spam") // 1 of 2 — must not fire
+	if HiddenFromListing("noalloc", id) {
+		t.Fatal("one of two approvals must not hide")
+	}
+	if got := cm.claims.Size(); got != before {
+		t.Fatalf("an unfired approval allocated a moderation row: %d rows, want %d", got, before)
+	}
+
+	// The second approval fires, and only now is the row real.
+	testing.SetRealm(testing.NewUserRealm(m2))
+	HideItem(cross(cur), "noalloc", id, "spam")
+	if !HiddenFromListing("noalloc", id) {
+		t.Fatal("the second approval should hide")
+	}
+	if cm.claims.Size() != before+1 {
+		t.Fatal("a fired act must allocate exactly one row")
+	}
+	// The guard still refuses a claim that does not exist at all.
+	testing.SetRealm(testing.NewUserRealm(creator))
+	uassert.AbortsContains(t, cur, "no such claim", func() {
+		HideItem(cross(cur), "noalloc", 9999, "spam")
+	})
+}
+
+// I11: purge must reach the moderation log itself. A row's reason is FREE TEXT
+// a moderator wrote, so it can carry the very thing the purge was called in to
+// remove — and "we removed the claim" is no answer when the removal notice
+// repeats what it removed. The row survives with its height, actor and act
+// code, so the audit trail still shows what happened and who did it; only the
+// prose goes, and it goes from STATE, not merely from the render.
+func TestPurgeReachesTheModerationLog(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("prow-alice")
+	c := testCourt(cur, "prow", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "prow", "a claim")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "prow", id, "contains a home address")
+
+	page := Render("prow/mod")
+	if !strings.Contains(page, "contains a home address") {
+		t.Fatal("fixture: the reason should render before the purge")
+	}
+	if !strings.Contains(page, "row 1") {
+		t.Fatal("the log must print row ids — PurgeModLogRow is addressed by one")
+	}
+
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 1)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	PurgeModLogRow(cross(cur), "prow", id, 1, "DOXX-1")
+
+	page = Render("prow/mod")
+	if strings.Contains(page, "contains a home address") {
+		t.Fatal("a purged row's reason must be gone from every surface")
+	}
+	if !strings.Contains(page, "reason removed on legal grounds") {
+		t.Fatal("the row should stay, marked, so the audit trail survives")
+	}
+	// Gone from STATE, not just hidden at render — a purge that only stops
+	// printing leaves the text on chain for anyone reading the tree.
+	cm := ensureMod(c)
+	clm := lookupClaimMod(cm, id)
+	for _, a := range clm.log {
+		if a.reason == "contains a home address" {
+			t.Fatal("the purged text is still in state")
+		}
+	}
+
+	// An id nobody can reach is refused before the m-of-n is spent on it.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "no such moderation-log row", func() {
+		PurgeModLogRow(cross(cur), "prow", id, 9999, "DOXX-1")
+	})
+	// And only the global DAO may do it at all. The refuser must be an address
+	// that provably is NOT a member: alice cannot play that role, because the
+	// global DAO bootstraps from whoever created the FIRST court in the process
+	// — run alone, that is alice, and this arm would assert nothing. The same
+	// trap as kourtv1's TestDirectoryTiers, and the isolation sweep caught it
+	// here too.
+	outsider := testutils.TestAddress("prow-outsider")
+	if outsider == dadmin {
+		t.Fatal("fixture: the refuser must not be the global DAO admin")
+	}
+	testing.SetRealm(testing.NewUserRealm(outsider))
+	uassert.AbortsContains(t, cur, "only a global DAO member", func() {
+		PurgeModLogRow(cross(cur), "prow", id, 2, "DOXX-1")
+	})
+}
+
+// Tier is moderation — hiding a court from the front page is the first power
+// the global DAO was described as having — so it is a DAO power, not a lone
+// key's, and it emits like every other act (I6).
+func TestSetTierIsAGlobalDAOPower(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("tier-alice")
+	stranger := testutils.TestAddress("tier-stranger")
+	testCourt(cur, "tierc", alice, 10_000_000_000)
+
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member", func() {
+		SetTier(cross(cur), "tierc", int(tierHidden))
+	})
+
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetTier(cross(cur), "tierc", int(tierHidden))
+	if CourtTier("tierc") != int(tierHidden) {
+		t.Fatal("a global DAO member should be able to hide a court")
+	}
+
+	// A second DAO member can act too — the point of the migration is that the
+	// power is no longer one key's.
+	second := testutils.TestAddress("tier-second")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), second)
+	testing.SetRealm(testing.NewUserRealm(second))
+	SetTier(cross(cur), "tierc", int(tierFeatured))
+	if CourtTier("tierc") != int(tierFeatured) {
+		t.Fatal("any global DAO member may set a tier")
+	}
+}
+
+// An approval must go stale. The defect was never storage — approvals are
+// self-paid, bounded by a derived key space, and walked by nothing. It is that
+// m-of-n meant "m members agreed at some point in history" rather than "m
+// members agree now": a signature given in January sat at m-1 and could be
+// completed in November by one colleague, on an irreversible act its author
+// would have withdrawn if withdrawing existed.
+func TestPendingApprovalsGoStale(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("ttl-alice")
+	m1 := testutils.TestAddress("ttl-m1")
+	m2 := testutils.TestAddress("ttl-m2")
+	c := testCourt(cur, "ttlc", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "ttlc", 2, m1, m2)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "ttlc", "a claim")
+	key := "hide:" + strconv.FormatUint(id, 10)
+
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "ttlc", id, "one")
+	n, expires, expiresH := PendingApproval("ttlc", key)
+	if n != 1 || expires == 0 || expiresH == 0 {
+		t.Fatalf("the deadline must be visible as a DATE with its reference height: "+
+			"%d approvals, expires %d (block %d)", n, expires, expiresH)
+	}
+	// And the date is the one the write path gates on, not a re-derivation: it is
+	// the entry's own stamp plus the TTL, so a reader planning around it and the
+	// realm refusing at it cannot disagree.
+	a := c.mod.pending.Get(key).(*approval)
+	uassert.Equal(t, a.openedAtTime+blocksToSecs(pendingTTLBlocks), expires)
+	uassert.Equal(t, a.openedAt+pendingTTLBlocks, expiresH)
+
+	// One block past the window: m2's approval starts a NEW proposal rather
+	// than completing the old one.
+	testing.SkipHeights(pendingTTLBlocks + 1)
+	if n, _, _ := PendingApproval("ttlc", key); n != 0 {
+		t.Fatal("an expired entry must read as absent, matching what the write path will do")
+	}
+	testing.SetRealm(testing.NewUserRealm(m2))
+	HideItem(cross(cur), "ttlc", id, "two")
+	if HiddenFromListing("ttlc", id) {
+		t.Fatal("a stale signature completed the quorum")
+	}
+	if n, _, _ := PendingApproval("ttlc", key); n != 1 {
+		t.Fatal("the evictor's own signature should seed the fresh proposal")
+	}
+
+	// EXPIRY IS A RESTART, NOT A BLOCK: the set can re-sign and fire at once.
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "ttlc", id, "two")
+	if !HiddenFromListing("ttlc", id) {
+		t.Fatal("two contemporaneous approvals must still fire immediately")
+	}
+}
+
+// THE I8 RE-HIDE COOLDOWN, WHICH HAD NO TEST AT ALL.
+//
+// The guard exists because a moderator who LOST an unhide appeal — after the
+// appellant spent weeks and real bonds — could re-hide in the very next block for
+// free, "nullifying the restorative half of the appeals layer". Nothing pinned
+// it: no test in this package produced its panic and neither corpus file carried
+// a row for it, so deleting the whole branch left the suite GREEN — measured, by
+// deleting it. Found while converting it to the wall clock; the conversion is the
+// smaller half of this test.
+//
+// The cooldown is the VOTE'S OWN LENGTH (votingBlocks), which is why the unit
+// matters rather than being a nicety: counted in blocks it is one vote long only
+// at 5s a block, and on a faster chain the loser of an appeal waits less than the
+// appeal itself took.
+func TestTheReHideCooldownIsEnforcedAndRunsOnTheWallClock(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("rh-alice")
+	c := testCourt(cur, "rh", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "rh", "a claim to hide and unhide")
+
+	// ensureMod seats the creator as a 1-of-1 set, so alice's single call fires.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "rh", id, "first hide")
+	if !HiddenFromListing("rh", id) {
+		t.Fatal("fixture: the court bit must be set before a meta verdict can clear it")
+	}
+
+	// The appeal succeeds: module 7 clears the court bit and stamps the cooldown.
+	// Called directly rather than through the whole meta voting apparatus — this
+	// IS the writer the guard reads, so it is the honest anchor.
+	cm := c.mod
+	clearCourtBitByMeta(c, id, alice)
+	clm := lookupClaimMod(cm, id)
+	if clm == nil || clm.executedAt == 0 {
+		t.Fatal("fixture: the meta clear must stamp executedAt")
+	}
+	if clm.executedAtTime == 0 {
+		t.Fatal("fixture: no wall-clock stamp, so this would test the height fallback instead")
+	}
+	if HiddenFromListing("rh", id) {
+		t.Fatal("fixture: the meta clear must actually unhide")
+	}
+
+	// THE GUARD ITSELF, asserted for the first time: the set may not re-hide.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "may not re-hide yet", func() {
+		HideItem(cross(cur), "rh", id, "straight back up")
+	})
+
+	// One second short of the cooldown, on the clock, with no block mined.
+	openedH := heightNow()
+	bump := func(d int64) {
+		ctx := testing.GetContext()
+		ctx.Time = ctx.Time.Add(time.Duration(d) * time.Second)
+		testing.SetContext(ctx)
+	}
+	bump(blocksToSecs(c.params.votingBlocks) - 1)
+	uassert.Equal(t, openedH, heightNow())
+	uassert.True(t, heightNow() < clm.executedAt+c.params.votingBlocks) // blocks still say "wait"
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "may not re-hide yet", func() {
+		HideItem(cross(cur), "rh", id, "one second early")
+	})
+
+	// The second itself: the cooldown is over on the clock alone.
+	bump(1)
+	uassert.Equal(t, openedH, heightNow())
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "rh", id, "after the cooldown")
+	if !HiddenFromListing("rh", id) {
+		t.Fatal("past the cooldown on the wall clock the set may re-hide")
+	}
+
+	// ---- AND A PRE-STAMP VERDICT STILL READS HEIGHT, TO ITS EXACT BLOCK ----
+	clearCourtBitByMeta(c, id, alice)
+	clm2 := lookupClaimMod(cm, id)
+	clm2.executedAtTime = 0 // the pre-upgrade shape: a height, no stamp
+	target := clm2.executedAt + c.params.votingBlocks
+	if d := target - 1 - heightNow(); d > 0 {
+		testing.SkipHeights(d)
+	}
+	uassert.Equal(t, target-1, heightNow())
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "may not re-hide yet", func() {
+		HideItem(cross(cur), "rh", id, "one block early")
+	})
+	testing.SkipHeights(1)
+	uassert.Equal(t, target, heightNow())
+	testing.SetRealm(testing.NewUserRealm(alice))
+	HideItem(cross(cur), "rh", id, "on the exact block")
+	if !HiddenFromListing("rh", id) {
+		t.Fatal("a pre-stamp verdict's cooldown must still end on its exact block")
+	}
+}
+
+// THE SEVEN DAYS ARE SEVEN DAYS, ON ALL THREE READERS.
+//
+// TestPendingApprovalsGoStale above walks the TTL with SkipHeights, which moves
+// height and time together at exactly 5s a block, so it cannot say which clock
+// the rule read. Three places ask the staleness question — approveAction (the
+// write path), pendingOpenedAt (the bulk-act bound) and PendingApproval (the
+// read) — and they share approvalStale precisely so they cannot answer it
+// differently. This asserts the wall clock governs at ALL THREE, because a
+// convert-two-of-three is the exact failure the shared predicate exists to make
+// impossible, and a test touching only one would not have noticed it.
+func TestTheApprovalTTLExpiresOnWallClockNotOnBlocks(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("ttlw-alice")
+	m1 := testutils.TestAddress("ttlw-m1")
+	m2 := testutils.TestAddress("ttlw-m2")
+	c := testCourt(cur, "ttlw", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "ttlw", 2, m1, m2)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "ttlw", "a claim")
+	key := "hide:" + strconv.FormatUint(id, 10)
+
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "ttlw", id, "one")
+
+	cm := c.mod
+	a := cm.pending.Get(key).(*approval)
+	if a.openedAtTime == 0 {
+		t.Fatal("fixture: no open stamp, so this would test the height fallback instead")
+	}
+	openedH := heightNow()
+
+	// A week and a day of wall clock, and not one block. On the block arithmetic
+	// this is still the entry's first block, so anything that expires here
+	// expired on the clock.
+	ctx := testing.GetContext()
+	ctx.Time = ctx.Time.Add(8 * 24 * time.Hour)
+	testing.SetContext(ctx)
+	uassert.Equal(t, openedH, heightNow())
+	uassert.True(t, heightNow() < a.openedAt+pendingTTLBlocks) // blocks still say "live"
+
+	// READER ONE: PendingApproval reports it absent.
+	if n, _, _ := PendingApproval("ttlw", key); n != 0 {
+		t.Fatal("an entry past its TTL in wall-clock time must read as absent")
+	}
+	// READER TWO: pendingOpenedAt, the bulk-act bound, agrees.
+	if got := pendingOpenedAt(cm.pending, key); got != 0 {
+		t.Fatalf("pendingOpenedAt must drop a wall-clock-stale entry, got %d", got)
+	}
+	// READER THREE: the write path restarts rather than completing the quorum —
+	// the assertion that actually costs money if it is wrong, since m2 signing a
+	// dead proposal would hide the claim on one live signature.
+	testing.SetRealm(testing.NewUserRealm(m2))
+	HideItem(cross(cur), "ttlw", id, "two")
+	if HiddenFromListing("ttlw", id) {
+		t.Fatal("a signature banked before the TTL elapsed completed the quorum")
+	}
+	if n, _, _ := PendingApproval("ttlw", key); n != 1 {
+		t.Fatal("the evictor's own signature should seed the fresh proposal")
+	}
+
+	// ---- AND A PRE-STAMP ENTRY STILL READS HEIGHT, TO ITS EXACT BLOCK ----
+	fresh := cm.pending.Get(key).(*approval)
+	fresh.openedAtTime = 0 // the pre-upgrade shape: a height, no stamp
+	target := fresh.openedAt + pendingTTLBlocks
+	if d := target - 1 - heightNow(); d > 0 {
+		testing.SkipHeights(d)
+	}
+	uassert.Equal(t, target-1, heightNow())
+	if n, _, _ := PendingApproval("ttlw", key); n != 1 {
+		t.Fatal("one block short, a pre-stamp entry is still live")
+	}
+	testing.SkipHeights(1)
+	uassert.Equal(t, target, heightNow())
+	if n, _, _ := PendingApproval("ttlw", key); n != 0 {
+		t.Fatal("a pre-stamp entry must still expire on its exact block")
+	}
+}
+
+// The deadline is FIXED at the first approval, not slid forward by each signer.
+// Sliding would give an entry up to n x TTL of life, and a death height that
+// depends on other members' behaviour is one a coordinated pair can steer.
+func TestApprovalDeadlineIsFixedNotSliding(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("slide-alice")
+	m1 := testutils.TestAddress("slide-m1")
+	m2 := testutils.TestAddress("slide-m2")
+	m3 := testutils.TestAddress("slide-m3")
+	testCourt(cur, "slidec", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "slidec", 3, m1, m2, m3)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "slidec", "a claim")
+
+	testing.SetRealm(testing.NewUserRealm(m1))
+	HideItem(cross(cur), "slidec", id, "one")
+	testing.SkipHeights(pendingTTLBlocks - 10)
+	testing.SetRealm(testing.NewUserRealm(m2))
+	HideItem(cross(cur), "slidec", id, "two") // progress, but the clock is fixed
+	testing.SkipHeights(20)                   // now past the ORIGINAL deadline
+	testing.SetRealm(testing.NewUserRealm(m3))
+	HideItem(cross(cur), "slidec", id, "three")
+	if HiddenFromListing("slidec", id) {
+		t.Fatal("a mid-window approval must not extend the original deadline")
+	}
+}
+
+// The three cheapest of the nine guards the moderation mutation batch showed to
+// be unpinned: two range gates and one authority gate, each deletable today
+// without a single test noticing. They are cheap precisely because they need no
+// membership choreography — a call with a bad argument, and a control proving the
+// refusal came from the range check rather than from a blanket refusal.
+func TestModerationRangeAndAuthorityGates(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("mrg-alice")
+	stranger := testutils.TestAddress("mrg-stranger")
+	testCourt(cur, "mrgc", alice, 10_000_000_000)
+
+	// AppointMods' m-of-n range. alice is the creator, so she holds the
+	// appointment power until an election spends it.
+	pair := []address{
+		testutils.TestAddress("mrg-m1"),
+		testutils.TestAddress("mrg-m2"),
+	}
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "m-of-n threshold must be in 1..n", func() {
+		AppointMods(cross(cur), "mrgc", 0, pair...)
+	})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "m-of-n threshold must be in 1..n", func() {
+		AppointMods(cross(cur), "mrgc", 3, pair...)
+	})
+	// THE CONTROL: 2-of-2 installs. Without it both refusals above would pass
+	// just as well if AppointMods refused everything for an unrelated reason.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "mrgc", 2, pair...)
+	if m, n := ModThreshold("mrgc"); m != 2 || n != 2 {
+		t.Fatalf("an in-range threshold must install: got %d-of-%d", m, n)
+	}
+
+	// SetPurgeThreshold's authority gate. The global DAO bootstraps with the
+	// directory admin as its sole member, so that address is the only one that may
+	// move the threshold.
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only the global DAO admin sets the purge threshold", func() {
+		SetPurgeThreshold(cross(cur), 1)
+	})
+
+	// ...and its range gate. 9999 rather than n+1: other tests add DAO members, so
+	// n is order-dependent, and a bound that has to be computed is a bound that can
+	// be computed wrong.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "purge threshold must be in 1..n", func() {
+		SetPurgeThreshold(cross(cur), 0)
+	})
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "purge threshold must be in 1..n", func() {
+		SetPurgeThreshold(cross(cur), 9999)
+	})
+	// THE CONTROL: 1 is in range for any n >= 1, which holds by construction.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 1)
+}
+
+// AppointMods discards the outgoing set's banked approvals. Same class as the
+// election-install case (v0.25), reached by the other route: the creator holds the
+// appointment power until an election spends it, so a creator can swap the set
+// directly, and a signature banked by the old set must not complete the new set's
+// quorum.
+//
+// Observable in a way ResetModSet's clear is not: the new set can act immediately
+// after an appointment, with no other clear in between. Mutation-verified.
+func TestAppointModsDiscardsTheOutgoingSetsApprovals(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("apnt-alice")
+	oldA := testutils.TestAddress("apnt-oldA")
+	oldB := testutils.TestAddress("apnt-oldB")
+	newX := testutils.TestAddress("apnt-newX")
+	newY := testutils.TestAddress("apnt-newY")
+	testCourt(cur, "apnt", alice, 10_000_000_000)
+
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "apnt", 2, oldA, oldB)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "apnt", "a claim the old set wanted buried")
+
+	// The outgoing set banks one of the two it needs.
+	testing.SetRealm(testing.NewUserRealm(oldA))
+	HideItem(cross(cur), "apnt", id, "pretextual")
+	if HiddenFromListing("apnt", id) {
+		t.Fatal("fixture: one of two must not fire")
+	}
+	hideAt := runtime.ChainHeight()
+	hideKey := "hide:" + strconv.FormatUint(id, 10)
+	if n, _, _ := PendingApproval("apnt", hideKey); n != 1 {
+		t.Fatalf("fixture: the old set must have ONE banked approval, got %d", n)
+	}
+
+	// The creator swaps in a DISJOINT set.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "apnt", 2, newX, newY)
+	if IsCourtMod("apnt", oldA) {
+		t.Fatal("fixture: the old set must be gone")
+	}
+
+	// The premise, asserted rather than assumed: the approval is gone because the
+	// APPOINTMENT discarded it, not because it timed out.
+	if runtime.ChainHeight() >= hideAt+pendingTTLBlocks {
+		t.Fatal("fixture went vacuous: the pending TTL elapsed, so the banked " +
+			"approval would have expired with or without the clear")
+	}
+
+	// ONE member of the incoming set acts. Under the bug, oldA's banked signature
+	// completes the 2-of-2 and this hides the claim.
+	testing.SetRealm(testing.NewUserRealm(newX))
+	HideItem(cross(cur), "apnt", id, "reviewing")
+	if HiddenFromListing("apnt", id) {
+		t.Fatal("a deposed set's signature completed the incoming set's quorum")
+	}
+	// ...and the incoming set CAN act on its own two signatures, so the refusal
+	// above is the stale approval being discarded and not a broken set.
+	testing.SetRealm(testing.NewUserRealm(newY))
+	HideItem(cross(cur), "apnt", id, "reviewing")
+	if !HiddenFromListing("apnt", id) {
+		t.Fatal("the incoming set's own 2-of-2 must fire")
+	}
+}
+
+// The global DAO discards its banked approvals whenever WHO MAY ACT changes, or
+// how many must agree. Four call sites share this body — AddGlobalMod,
+// RemoveGlobalMod, TransferGlobalAdmin and SetPurgeThreshold — and each was
+// deletable without a test noticing.
+//
+// The assertion is direct rather than behavioural: bank one approval, make the
+// change, and require the pending count to be ZERO. Driving it through
+// fire/no-fire would need a third approver per case and would fire irreversible
+// actions to prove a negative; reading the count says the same thing in one line.
+//
+// The control is the middle case. WITHOUT a membership change the banked approval
+// SURVIVES, which is what proves a zero came from the clear rather than from
+// banking never having worked at all.
+func TestGlobalDAODiscardsApprovalsOnMembershipChange(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("gdao-alice")
+	memB := testutils.TestAddress("gdao-memB")
+	memC := testutils.TestAddress("gdao-memC")
+	memD := testutils.TestAddress("gdao-memD")
+	for _, slug := range []string{"gdao1", "gdao2", "gdao3", "gdao4"} {
+		testCourt(cur, slug, alice, 1_000_000_000)
+	}
+	dadmin := DirectoryAdmin()
+
+	// A body of at least three, and a threshold of two, so a single approval BANKS
+	// instead of firing. The DAO bootstraps n=1/purgeM=1, where one approval is
+	// already a quorum and there is no banked state to discard.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), memB)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), memC)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	bank := func(slug string) int64 {
+		testing.SetRealm(testing.NewUserRealm(memB))
+		GlobalSuspendSet(cross(cur), slug)
+		if CourtSuspended(slug) {
+			t.Fatalf("fixture: one of two must not fire on %s", slug)
+		}
+		if n, _, _ := PendingApproval("", "gsuspend:"+slug); n != 1 {
+			t.Fatalf("fixture: %s must have ONE banked approval, got %d", slug, n)
+		}
+		return runtime.ChainHeight()
+	}
+	gone := func(slug, what string) {
+		if n, _, _ := PendingApproval("", "gsuspend:"+slug); n != 0 {
+			t.Fatalf("%s left %d banked approval(s) standing; a member who no "+
+				"longer counts can still complete the threshold", what, n)
+		}
+	}
+
+	// THE CONTROL, first: with no membership change the approval survives. Every
+	// zero below means something only because this one is not zero.
+	at := bank("gdao1")
+	if n, _, _ := PendingApproval("", "gsuspend:gdao1"); n != 1 {
+		t.Fatal("control: an untouched approval must still be banked")
+	}
+	if runtime.ChainHeight() >= at+pendingTTLBlocks {
+		t.Fatal("fixture went vacuous: the pending TTL elapsed, so every clear " +
+			"below would read as effective whether or not it ran")
+	}
+
+	// ADDING a member: the threshold is now met by a different set of people.
+	bank("gdao2")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), memD)
+	gone("gdao2", "AddGlobalMod")
+
+	// REMOVING one: their signature must not still count. Note this also clamps
+	// purgeM down to n if it would exceed it, so the threshold is restored after.
+	bank("gdao3")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	RemoveGlobalMod(cross(cur), memD)
+	gone("gdao3", "RemoveGlobalMod")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	// MOVING THE ADMIN SEAT TO A FRESH KEY. This was the strictly better route for
+	// an admin wanting to complete a stuck purge: seat a new key without resetting
+	// the banked signatures. It must be a NON-member — the clear sits inside the
+	// branch that ADDS the new admin, and that conditionality is deliberate, not an
+	// oversight (see the next assertion).
+	memE := testutils.TestAddress("gdao-memE")
+	bank("gdao4")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	TransferGlobalAdmin(cross(cur), memE)
+	gone("gdao4", "TransferGlobalAdmin")
+
+	// ...and the seat moving between EXISTING members deliberately does NOT clear,
+	// which is why the fixture above had to use a fresh address. Membership is
+	// unchanged, so every banked signature still belongs to a current member and no
+	// consent has gone stale; the admin's own extra powers are unilateral and were
+	// never approved by m-of-n in the first place. Pinned so that nobody "fixes"
+	// the conditional into an unconditional wipe and quietly makes a stuck purge
+	// un-completable by rotating a key.
+	at3 := bank("gdao2")
+	_ = at3
+	testing.SetRealm(testing.NewUserRealm(memE))
+	TransferGlobalAdmin(cross(cur), dadmin)
+	if n, _, _ := PendingApproval("", "gsuspend:gdao2"); n != 1 {
+		t.Fatalf("a seat moving between existing members must NOT clear: got %d", n)
+	}
+
+	// CHANGING THE THRESHOLD. Consent is half "who must agree", so lowering the bar
+	// re-scores every banked signature against it. memB holds the admin seat now.
+	at2 := bank("gdao3")
+	_ = at2
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 3)
+	gone("gdao3", "SetPurgeThreshold")
+
+	// Restore the body: the global DAO is package-global and never reset, so a test
+	// that grows it owes the next one a tidy state.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 1)
+	for _, m := range []address{memB, memC, memE} {
+		testing.SetRealm(testing.NewUserRealm(dadmin))
+		RemoveGlobalMod(cross(cur), m)
+	}
+}
+
+// THE GLOBAL DAO'S AUTHORITY PERIMETER. Eleven entrypoints carry the most
+// dangerous powers in the design — irreversible purge, global hide, clearing any
+// bit, suspending a court's moderator set — and every one of their authority
+// guards could be deleted with the whole suite still green. The reason is
+// structural and worth stating: the DAO bootstraps with the directory admin as
+// its sole member, so every test that exercises a global power acts AS the
+// authority, and an authority check nothing ever calls as a NON-member is never
+// exercised at all. Eleven mutations, eleven survivors, one cause.
+//
+// The authority check is the FIRST substantive guard in each of these — before
+// mustCourt, before mustClaim, before any category-code or state test — so each
+// refusal below is unambiguously about who called and not about what they asked
+// for. The court and claim are real anyway, so that with a guard deleted the call
+// would proceed rather than trip over a bogus argument.
+//
+// Two powers are asserted ONLY as refusals, deliberately: a successful
+// TransferGlobalAdmin or AddGlobalMod would move package-global DAO state that
+// every other test reads — TestModerationRangeAndAuthorityGates already avoids
+// computing a bound off `n` for exactly that reason.
+func TestGlobalDAOPowersRefuseAStranger(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("perim-alice")
+	// A prefix no other test uses, because a stranger who is a DAO member
+	// somewhere else in the package would make every assertion below vacuous.
+	stranger := testutils.TestAddress("perim-stranger")
+	c := testCourt(cur, "perim", alice, 10_000_000_000)
+	_ = c
+
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "perim", "a claim the stranger will fail to touch")
+
+	// --- the admin-only seat: membership and succession -------------------
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only the global DAO admin manages membership", func() {
+		AddGlobalMod(cross(cur), stranger)
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only the global DAO admin manages membership", func() {
+		RemoveGlobalMod(cross(cur), DirectoryAdmin())
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only the global DAO admin transfers the seat", func() {
+		TransferGlobalAdmin(cross(cur), stranger)
+	})
+
+	// --- the member-only recovery and redaction powers --------------------
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may global-hide", func() {
+		GlobalHide(cross(cur), "perim", id, "dmca")
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may clear a global hide", func() {
+		GlobalClear(cross(cur), "perim", id)
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may clear bits (recovery)", func() {
+		ClearAnyBit(cross(cur), "perim", id)
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may clear a suspension (recovery)", func() {
+		ClearCourtSuspension(cross(cur), "perim")
+	})
+
+	// --- the member-only irreversible powers ------------------------------
+	// PurgeClaim and PurgeCourt share one message, so each is called on its own
+	// entrypoint: the message cannot tell them apart and only the call can.
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may purge", func() {
+		PurgeClaim(cross(cur), "perim", id, "csam")
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may purge", func() {
+		PurgeCourt(cross(cur), "perim", "csam")
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may suspend a moderator set", func() {
+		GlobalSuspendSet(cross(cur), "perim")
+	})
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only a global DAO member may reset a moderator set", func() {
+		ResetModSet(cross(cur), "perim")
+	})
+
+	// THE CONTROL. Without it every refusal above would read the same if the
+	// fixture were simply incapable of a successful global act — a wrong slug, a
+	// claim that does not exist, a DAO with no members. The directory admin IS
+	// the bootstrap member, so the same call it just refused from a stranger goes
+	// through, and its reverse puts the claim back so no later test inherits a
+	// globally hidden claim.
+	dadmin := DirectoryAdmin()
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "perim", id, "dmca")
+	if !TextRedacted("perim", id) {
+		t.Fatal("the bootstrap DAO member's own global-hide must land, or the eleven refusals above prove nothing")
+	}
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalClear(cross(cur), "perim", id)
+	if TextRedacted("perim", id) {
+		t.Fatal("a global clear must lift the redaction it just set")
+	}
+}
+
+// The STATE guards behind the same powers — the refusals that are not about who
+// called but about whether there is anything to do. Every one survived its
+// mutation for the same structural reason the authority perimeter did: the suite
+// exercises these powers only on state where they succeed, so the no-op arms were
+// never reached. An idempotence guard that nothing ever calls twice is not a
+// guard, it is a comment.
+func TestGlobalDAOStateGuardsRefuseNoOps(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("noop-alice")
+	stranger := testutils.TestAddress("noop-stranger")
+	testCourt(cur, "noopc", alice, 10_000_000_000)
+	// AFTER the court, never before. directoryAdmin is empty until the FIRST
+	// court in the package is created, so reading it earlier yields the ZERO
+	// address — and RemoveGlobalMod(zero) is a silent no-op rather than a
+	// refusal, which made the admin-cannot-be-removed arm below vacuous when
+	// this test ran alone and correct only because a neighbour had made a court
+	// first. A test that depends on package-global state must ESTABLISH it.
+	dadmin := DirectoryAdmin()
+	if dadmin == "" {
+		t.Fatal("the directory admin must exist before any global-DAO arm runs")
+	}
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "noopc", "a claim with nothing done to it")
+
+	// Nothing to clear: no global hide, no bits, no suspension.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "no global hide on that claim", func() {
+		GlobalClear(cross(cur), "noopc", id)
+	})
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "nothing to clear on that claim", func() {
+		ClearAnyBit(cross(cur), "noopc", id)
+	})
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "that court's set is not suspended", func() {
+		ClearCourtSuspension(cross(cur), "noopc")
+	})
+
+	// The mirror image: suspending a set that is already suspended. The FIRST
+	// call has to succeed, which also controls the three refusals above — without
+	// it they would all read the same if the fixture were simply incapable of a
+	// global act that lands.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalSuspendSet(cross(cur), "noopc")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "that set is already suspended", func() {
+		GlobalSuspendSet(cross(cur), "noopc")
+	})
+	// Lifted again, both to pin the clear's success arm and to leave the court as
+	// it was found — a suspended set refuses every court-level act below.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	ClearCourtSuspension(cross(cur), "noopc")
+
+	// A court cannot unhide what it is not hiding. alice is the creator and hence
+	// the sole 1-of-1 moderator, so this is a court-level refusal, not a global
+	// one, and it is reached only because the suspension above was lifted.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "this court is not hiding that claim", func() {
+		UnhideItem(cross(cur), "noopc", id, "never hidden")
+	})
+
+	// The reason cap. checkReason is a SHARED chokepoint — HideItem, UnhideItem
+	// and GlobalHide all pass through it — so one call pins it for all three, the
+	// same way canonicalMembers' size cap covers both ways a moderator set enters.
+	long := ""
+	for i := 0; i < maxReasonLen+1; i++ {
+		long += "x"
+	}
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "at most 200 characters", func() {
+		HideItem(cross(cur), "noopc", id, long)
+	})
+
+	// The purge trio each validate the category code in their own body, and the
+	// message is byte-identical at all three sites, so each entrypoint is called
+	// on its own — the message cannot tell them apart and only the call can.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "purge needs a statutory category code", func() {
+		PurgeClaim(cross(cur), "noopc", id, "")
+	})
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "purge needs a statutory category code", func() {
+		PurgeCourt(cross(cur), "noopc", "")
+	})
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "purge needs a statutory category code", func() {
+		PurgeModLogRow(cross(cur), "noopc", id, 1, "")
+	})
+	// And a log row cannot be purged from a claim that has no log — the code is
+	// valid here, so this refusal is about the claim and not about the code.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "that claim has no moderation log", func() {
+		PurgeModLogRow(cross(cur), "noopc", id, 1, "dmca")
+	})
+
+	// The admin seat is vacated by TRANSFER only. Removal would leave a DAO with
+	// no admin and therefore no way to appoint one — unrecoverable, which is why
+	// the guard names the remedy.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	uassert.AbortsContains(t, cur, "the admin cannot be removed; transfer admin first", func() {
+		RemoveGlobalMod(cross(cur), dadmin)
+	})
+
+	// AppointMods is the creator's power until an election spends it. Paired
+	// deliberately: the first refusal is about the caller, the second about the
+	// argument, so neither can stand in for the other.
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "only the court creator appoints moderators", func() {
+		AppointMods(cross(cur), "noopc", 1, alice)
+	})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "a moderator set may not be empty", func() {
+		AppointMods(cross(cur), "noopc", 1)
+	})
+}
+
+// The m-of-n threshold is validated against the CANONICAL set, not the raw list.
+//
+// moderation.gno states both the rule and the bug it closed: "Canonicalize FIRST,
+// then validate: checking m against the raw list let {A,A,B} with m=3 install
+// n=2/m=3 — a set in which no action can ever reach its own threshold, including
+// UnhideItem, so any standing hide became locally permanent." A set that cannot
+// reach its own threshold cannot be repaired by its own members either, so the
+// only way out is an election install or a meta verdict.
+//
+// THE BOUND WAS ALREADY TESTED, AND THAT DID NOT HELP — which is why this test
+// exists and why it looks redundant. Four fixtures assert "m-of-n threshold must
+// be in 1..n", and every one of them passes DISTINCT members: moderation_test's
+// own `pair` is two different addresses, and modvote_test's is one. With distinct
+// members len(mods) EQUALS len(canon), so `m > len(canon)` and `m > len(mods)` are
+// the same program and no such fixture can tell them apart. Measured before
+// writing this, with the mutation applied to a staged copy and the anchor count
+// checked first: swapping canon for the raw list leaves the entire kourtv2 suite
+// green at BOTH sites — the check inside AppointMods in moderation.gno and the one
+// inside RegisterModCandidate in modvote.gno. A duplicate member is the only input
+// that separates them.
+//
+// Both entry points, because canonicalMembers is the chokepoint they share and
+// each does its own threshold check against the result — the same reason
+// TestModSetSizeIsCapped covers both.
+func TestTheThresholdIsCheckedAgainstTheCanonicalSet(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("cn-alice")
+	testCourt(cur, "canonord", alice, 10_000_000_000)
+
+	a := testutils.TestAddress("cn-m1")
+	b := testutils.TestAddress("cn-m2")
+	dup := []address{a, a, b} // three entries, two members
+
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "m-of-n threshold must be in 1..n", func() {
+		AppointMods(cross(cur), "canonord", 3, dup...)
+	})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "m-of-n threshold must be in 1..n", func() {
+		RegisterModCandidate(cross(cur), "canonord", 3, dup...)
+	})
+
+	// AND THE ORDINARY INPUT IT MUST NOT REFUSE: the same list at m=2 is a legal
+	// 2-of-2 set once canonicalised. Without this arm, a version that refused any
+	// list containing a duplicate would pass both refusals above — and refusing
+	// duplicates outright would be the wrong fix, since a caller listing the same
+	// address twice has asked for something perfectly reachable.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "canonord", 2, dup...)
+	if !IsCourtMod("canonord", a) || !IsCourtMod("canonord", b) {
+		t.Fatal("a duplicated list at m=2 must install as the 2-of-2 set it " +
+			"canonicalises to")
+	}
+}
+
+// THE RE-SET WINDOW'S LENGTH, BRACKETED FROM BOTH SIDES. That the window EXISTS
+// was already covered; that it is fourteen days was not, so reSetWindowBlocks
+// could have held any number at all and nothing in the suite would have objected.
+// The constants sweep found it unpinned, and this is the pin.
+//
+// IT NOW PINS WHAT ITS NAME SAYS. The window gates on the wall clock, so the
+// bracket is 1_209_600 SECONDS; the old bracket of 241_920 blocks was fourteen
+// days only on a chain holding 5s a block, which for a period borrowed from
+// §512(g) is the wrong thing to have been asserting. The block bracket is kept
+// below, on a record with no stamp, where it is still the rule.
+//
+// The expectation is the LITERAL and never the constant. An assertion written as
+// `reSetWindowBlocks` moves together with the code it is supposed to hold still —
+// which is exactly how the first draft of the deposit-floor pin passed against
+// its own mutation.
+//
+// The second half's skip totals 241_920, which is 336 whole epochs, so it leaves
+// the phase of the epoch clock untouched for every test that runs after this one.
+// A bare skip that lands mid-epoch is what broke
+// TestTheAssociationCapsBindAtTheirStatedNumbers once already. The first half
+// mines no blocks at all, so it cannot disturb that phase.
+func TestTheReSetWindowIsExactlyFourteenDaysLong(cur realm, t *testing.T) {
+	const windowIs = int64(241_920)     // 14 days at 17_280 blocks/day
+	const windowSecs = int64(1_209_600) // and fourteen days is this many seconds
+
+	alice := testutils.TestAddress("rsw-alice")
+	c := testCourt(cur, "rsw", alice, 10_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	id := OpenClaim(cross(cur), "rsw", "hidden, put back, and then re-set")
+
+	// Two global mods at a threshold of 2, so that INSIDE the window a lone key
+	// cannot act. That refusal is the entire difference the window makes: with a
+	// 1-of-1 set the m-of-n call fires on the first signature and the window
+	// becomes invisible.
+	dadmin := ensureGlobalDAO().admin
+	second := testutils.TestAddress("rsw-second")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	AddGlobalMod(cross(cur), second)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	SetPurgeThreshold(cross(cur), 2)
+
+	// Hide — no prior clear, so no window applies — then the DMCA put-back.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "rsw", id, "DMCA")
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalClear(cross(cur), "rsw", id)
+
+	cm := ensureMod(c)
+	clm := lookupClaimMod(cm, id)
+	clearedAt, clearedTime := clm.globalClearedAt, clm.globalClearedAtTime
+	if clearedAt == 0 {
+		t.Fatal("setup: the put-back must record the height it happened at")
+	}
+	if clearedTime == 0 {
+		t.Fatal("setup: the put-back must stamp the moment, or this pins the height arm")
+	}
+
+	// ---- THE STATUTORY BRACKET, IN SECONDS, MINING NO BLOCKS ----
+	bumpTo := func(target int64) {
+		d := target - nowTime()
+		if d < 0 {
+			t.Fatalf("setup: %d is already behind us (now %d)", target, nowTime())
+		}
+		ctx := testing.GetContext()
+		ctx.Time = ctx.Time.Add(time.Duration(d) * time.Second)
+		testing.SetContext(ctx)
+	}
+	frozenH := heightNow()
+
+	// ONE SECOND INSIDE. A lone key must not win the reversal race.
+	bumpTo(clearedTime + windowSecs - 1)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "rsw", id, "DMCA")
+	if lookupClaimMod(cm, id).global {
+		t.Fatalf("a lone key re-set the claim %d seconds after the put-back, which "+
+			"is still inside a %d-second window", nowTime()-clearedTime, windowSecs)
+	}
+
+	// AND ONE SECOND OUT, where the same lone key acts. The guard is
+	// `now < clearedAt+window`, so the window is over AT clearedAt+window.
+	bumpTo(clearedTime + windowSecs)
+	uassert.Equal(t, frozenH, heightNow()) // the whole bracket mined nothing
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "rsw", id, "DMCA")
+	if !lookupClaimMod(cm, id).global {
+		t.Errorf("the window outlasted its stated %d seconds: a lone key still could "+
+			"not re-set at clearedAt+%d", windowSecs, nowTime()-clearedTime)
+	}
+
+	// ---- AND THE BLOCK BRACKET, ON A RECORD WITH NO STAMP ----
+	// Where the height arm is still the rule, and still exactly 241_920 wide.
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalClear(cross(cur), "rsw", id)
+	clm2 := lookupClaimMod(cm, id)
+	clm2.globalClearedAtTime = 0 // the pre-upgrade shape: a height, no stamp
+	clearedAt2 := clm2.globalClearedAt
+
+	if step := clearedAt2 + windowIs - 1 - heightNow(); step > 0 {
+		testing.SkipHeights(step)
+	} else {
+		t.Fatalf("setup: the window's near edge is already behind us (step %d)", step)
+	}
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "rsw", id, "DMCA")
+	if lookupClaimMod(cm, id).global {
+		t.Fatalf("a lone key re-set a pre-stamp record %d blocks after the put-back, "+
+			"which is still inside a %d-block window", heightNow()-clearedAt2, windowIs)
+	}
+	testing.SkipHeights(1)
+	testing.SetRealm(testing.NewUserRealm(dadmin))
+	GlobalHide(cross(cur), "rsw", id, "DMCA")
+	if !lookupClaimMod(cm, id).global {
+		t.Errorf("a pre-stamp record's window outlasted its stated %d blocks", windowIs)
+	}
+}

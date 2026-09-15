@@ -1,0 +1,473 @@
+package kourtv2
+
+import (
+	"strings"
+	"testing"
+
+	testutils "gno.land/p/nt/testutils/v0"
+	uassert "gno.land/p/nt/uassert/v0"
+)
+
+func TestStartCourtCreatesABareCourt(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("v2-alice")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	slug := StartCourt(cross(cur), "v2eg", "V2 Example Court")
+	if slug != "v2eg" || !Exists("v2eg") {
+		t.Fatal("the court should exist under its slug")
+	}
+	if CourtName("v2eg") != "V2 Example Court" || CoinSupply("v2eg") != 0 {
+		t.Fatal("a bare court has its name and zero supply")
+	}
+	if CourtTier("v2eg") != int(tierListed) {
+		t.Fatal("a new court starts listed")
+	}
+	if EmittedTotal("v2eg") != 0 {
+		t.Fatal("a bare court has emitted nothing")
+	}
+	// The FIRST creator across the suite becomes the directory admin — this
+	// test may not run first (suites share package state), so assert the
+	// invariant, not the identity: an admin exists once any court does.
+	if DirectoryAdmin() == "" {
+		t.Fatal("a directory admin exists once any court does")
+	}
+}
+
+func TestSlugAndParamGuards(cur realm, t *testing.T) {
+	who := testutils.TestAddress("v2-guards")
+	testing.SetRealm(testing.NewUserRealm(who))
+	uassert.AbortsContains(t, cur, "slug is lowercase", func() {
+		StartCourt(cross(cur), "Bad Slug!", "x")
+	})
+	uassert.AbortsContains(t, cur, "slug is 1..11", func() {
+		StartCourt(cross(cur), "", "x")
+	})
+	// mustSane rejections (exercised directly — params are frozen defaults).
+	shouldPanicV2(t, "tie threshold", func() {
+		p := defaultParams()
+		p.disputeThresholdBps = 5000
+		p.mustSane()
+	})
+	shouldPanicV2(t, "zero deposit", func() {
+		p := defaultParams()
+		p.minClaimDepositCC = 0
+		p.mustSane()
+	})
+	shouldPanicV2(t, "malformed escrow window", func() {
+		p := defaultParams()
+		p.escrowMaxBlocks = p.escrowMinBlocks - 1
+		p.mustSane()
+	})
+}
+
+func shouldPanicV2(t *testing.T, name string, fn func()) {
+	t.Helper()
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("%s should have panicked", name)
+		}
+	}()
+	fn()
+}
+
+// mustSlug's CHARSET check is load-bearing for a security property in a DIFFERENT
+// file, and only its length check was tested. render.gno writes the slug RAW into
+// markdown link targets — `](/r/kourt/kourtv2:` + slug + `)` in writeListedByBurn,
+// writeTier and renderCourt —
+// while every other user string there goes through sanitize.InlineText. That raw
+// interpolation is safe ONLY because [a-z0-9-] cannot close a link target, open a
+// markdown construct, or traverse a path. AGENTS.md names exactly this class: never
+// write path segments or user-supplied keys straight into markdown output.
+//
+// So if anyone ever loosens this charset — to allow uppercase, or an underscore, or a
+// slash for namespacing — the render becomes injectable and nothing else in the suite
+// notices. This pins the charset to the characters that would break it.
+func TestSlugCharsetIsWhatMakesTheRawRenderSafe(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("slug-alice")
+	testCourt(cur, "slugok", alice, 1_000_000_000) // the happy path still works
+
+	// Each of these would escape the link target, open a markdown construct, or
+	// traverse the path if it reached render.gno unsanitized.
+	for _, bad := range []string{
+		"has)paren",   // closes the link target early
+		"has(paren",   //
+		"has]bracket", // closes the label
+		"has[bracket", //
+		"has/slash",   // path traversal into another realm path segment
+		"has:colon",   // splits the realm:path separator
+		"has space",
+		"has\nnewline",
+		"HasUpper",  // case-folding could collide two courts
+		"has_under", // not in the charset
+		"has.dot",   //
+		"has\\back", //
+		"has`tick",  // code span
+		"has*star",  // emphasis
+		"has<angle", // raw HTML
+		// THE HYPHEN JOINS THE LIST, at the owner's word rather than for safety.
+		// It was in the charset and it was safe there — it cannot close a link
+		// target or traverse a path, which is what the rest of this list is
+		// about. It came out because of where a slug ENDS UP: the court coin's
+		// symbol is the upper-cased slug, so a hyphenated court showed as
+		// KOURT:MY-COURT, and a hyphen in a ticker reads as a minus sign.
+		// Listed here anyway, because this test is the one place that states
+		// what the alphabet is, and an alphabet is defined by what it refuses.
+		"has-hyphen",
+		"-leading",
+		"trailing-",
+	} {
+		testing.SetRealm(testing.NewUserRealm(alice))
+		uassert.AbortsContains(t, cur, "lowercase letters and digits only",
+			func() {
+				StartCourt(cross(cur), bad, "Bad Slug Court")
+			})
+	}
+
+	// And the permitted set really is permitted, so the guard is not merely
+	// rejecting everything.
+	// THE HYPHENATED ENTRIES MOVED TO THE REFUSAL LIST when the alphabet became
+	// alphanumeric. Three of the six cases here were "a-b-c", "-" and
+	// "with-9-dig", which is worth noticing: over half of what this loop
+	// asserted was permitted is now forbidden, and a list that says what is
+	// ALLOWED has to be edited in step with the rule or it quietly certifies the
+	// old one.
+	// "with9digit" not "with-9-digits": this asserts the CHARSET, and the length
+	// cap is a separate rule — slugs are at most maxSlugLen (11) so that
+	// uppercase(slug) fits GRC20's symbol bound, which is what stops a court
+	// coin from being unnamable in a wallet. A 13-char slug would fail on
+	// length and tell us nothing about the charset.
+	for _, good := range []string{"abc", "a1", "9", "with9digit"} {
+		testing.SetRealm(testing.NewUserRealm(alice))
+		StartCourt(cross(cur), good, "Good Slug Court")
+		if CourtTier(good) != int(tierListed) {
+			t.Fatalf("a valid slug must create a court: %q", good)
+		}
+	}
+}
+
+// Params.mustSane's six guards, none of which had a test. They are unreachable today —
+// StartCourt hardcodes defaultParams() and there is no params setter anywhere — so this
+// calls the method directly rather than trying to construct an unreachable court, the
+// same approach used for mulDiv128 and capBonus.
+//
+// Worth pinning now rather than later because mustSane becomes load-bearing the moment a
+// setter exists, and PLAN §12 row 37 already contemplates one (the deposit lever, 1 CC →
+// 5 CC). A validator that has never been exercised is a poor thing to discover a
+// governance path with. Each case also asserts the DEFAULTS pass, so the guards cannot
+// hold by rejecting everything.
+func TestParamsMustSaneRefusesEachMalformedField(cur realm, t *testing.T) {
+
+	// The defaults are sane — the control.
+	_ = defaultParams().mustSane()
+
+	// The overturn threshold is a STRICT majority band: 5000 would let a tie overturn.
+	for _, bad := range []int64{5000, 0, -1, 10001} {
+		p := defaultParams()
+		p.disputeThresholdBps = bad
+		mustPanicWith(t, "overturn threshold must be in [5001, 10000]", func() { p.mustSane() })
+	}
+	// Both boundaries accepted.
+	for _, ok := range []int64{5001, 10000} {
+		p := defaultParams()
+		p.disputeThresholdBps = ok
+		_ = p.mustSane()
+	}
+
+	// A zero voting or grace window would close a vote in the block it opened.
+	for _, f := range []func(p *Params){
+		func(p *Params) { p.votingBlocks = 0 },
+		func(p *Params) { p.graceBlocks = 0 },
+		func(p *Params) { p.votingBlocks = -1 },
+	} {
+		p := defaultParams()
+		f(&p)
+		mustPanicWith(t, "vote and grace windows must be positive", func() { p.mustSane() })
+	}
+
+	// minAnswerX is the answerability floor; zero would let a claim with no stake be
+	// answered, and every %-of-X̄ bar would then price off nothing.
+	p := defaultParams()
+	p.minAnswerX = 0
+	mustPanicWith(t, "minAnswerX must be positive", func() { p.mustSane() })
+
+	// A zero deposit makes claim-opening free, which is the anti-spam price.
+	p = defaultParams()
+	p.minClaimDepositCC = 0
+	mustPanicWith(t, "claim deposit must never be zero", func() { p.mustSane() })
+
+	// The escrow window must be a window: positive, and max not below min.
+	p = defaultParams()
+	p.escrowMinBlocks = 0
+	mustPanicWith(t, "escrow window is malformed", func() { p.mustSane() })
+	p = defaultParams()
+	p.escrowMaxBlocks = p.escrowMinBlocks - 1
+	mustPanicWith(t, "escrow window is malformed", func() { p.mustSane() })
+	// Equal is still allowed — a fixed-length window is legitimate — but it must be
+	// LONG enough for a defaulted verdict's failed-round ladder, which is what the
+	// S2 invariant adds. At the default 120_960 it is not: that is exactly one
+	// votingBlocks, and the ladder needs ladderWindow. So the fixture now pins both
+	// directions rather than just the equality.
+	p = defaultParams()
+	p.escrowMinBlocks, p.escrowMaxBlocks = ladderWindow(p), ladderWindow(p)
+	_ = p.mustSane()
+	// One block short of the ladder is refused, at the ceiling.
+	p = defaultParams()
+	p.escrowMinBlocks, p.escrowMaxBlocks = ladderWindow(p)-1, ladderWindow(p)-1
+	mustPanicWith(t, "cannot fit the failed-round ladder", func() { p.mustSane() })
+	// And the shipped defaults clear it with room.
+	p = defaultParams()
+	if ladderWindow(p) > p.escrowMaxBlocks {
+		t.Fatalf("the defaults must fit the ladder: ladderWindow=%d escrowMax=%d",
+			ladderWindow(p), p.escrowMaxBlocks)
+	}
+	_ = p.mustSane()
+
+	// A negative cap would read as "uncapped" through the `> 0` test at PostAnswer.
+	p = defaultParams()
+	p.answerBondCapCC = -1
+	mustPanicWith(t, "answerBondCapCC must be non-negative", func() { p.mustSane() })
+	// Zero is the documented "uncapped" sentinel and must stay legal.
+	p = defaultParams()
+	p.answerBondCapCC = 0
+	_ = p.mustSane()
+}
+
+// THE CALIBRATION PINS — the prices and durations of the system, asserted as LITERALS.
+//
+// Sixteen constants were mutated and TEN survived: the P7 carrot split, both comp arms,
+// the flag bond floor and its frozen multiple, both slash arms, the deposit fee, the
+// settle delay, the priority window, and the reservoir's cap in periods. Every one is a
+// number somebody calibrated — bondFloorConvBps carried "k=1.6 lands the 12-wk mill q* on the
+// ~0.22 target (three-designer convergence)" — and none of them was pinned.
+//
+// THAT NOTE IS NOW HISTORY AND THE PIN IS THE POINT. k moved to 1.07, which is the
+// lowest the draw cap admits, and no live check ever computed the 12-week mill q*
+// — it was a design target carried in prose. So the calibration it recorded is no
+// longer in force, and this literal is what makes the new value a decision rather
+// than a drift.
+//
+// They survived for one reason, and it is the reason this fixture uses LITERALS on the
+// right-hand side. Every existing fixture computes its expectation FROM the constant:
+// `wantBond := xbar * disputeBondXBps / 10000`, `testing.SkipHeights(settleDelay)`. Change
+// the constant and both sides move together, so the assertion holds and the price has
+// silently changed. A fixture that references the symbol can only check that the code
+// agrees with itself. Writing the number out is the whole point — if a value must change,
+// this test must be edited too, which is exactly the deliberate act a calibration deserves.
+//
+// This is NOT a claim that these values are right. It is a claim that they are what the
+// design settled on, so drift cannot be silent.
+func TestEconomicConstantsAreTheCalibratedValues(t *testing.T) {
+	for _, k := range []struct {
+		name string
+		got  int64
+		want int64
+		what string
+	}{
+		{"budgetWeeklyBps", budgetWeeklyBps, 38, "the weekly emission budget — the LOCKED ceiling's source"},
+		{"stepDownPeriods", stepDownPeriods, 104, "the halving horizon in weeks"},
+		{"rMaxPeriods", rMaxPeriods, 4, "how many quiet weeks the reservoir may bank"},
+		{"splitWinners", splitWinners, 80, "the accuracy pool's share of D"},
+		{"splitAuthor", splitAuthor, 8, "the author's share"},
+		{"splitAnswerer", splitAnswerer, 5, "the answerer's share"},
+		{"splitCarrot", splitCarrot, 7, "policing pay's share"},
+		{"answerBondBps", answerBondBps, 600, "the answer bond BASE is 6% of X-bar = bondFloorFlatBps*4/3; the collateralization floor in PostAnswer is what actually prices it, at 1.6x the destroyable draw over BOTH sides"},
+		{"disputeBondXBps", disputeBondXBps, 2000, "a dispute bond is 20% of X-bar"},
+		{"disputeBondOfAnswerBps", disputeBondOfAnswerBps, 4000, "or 40% of the answer bond, whichever is less"},
+		{"compOwnX", compOwnX, 2, "comp is capped at twice the disputer's own bond"},
+		{"compOfBurnBps", compOfBurnBps, 8000, "and at 80% of what burned"},
+		{"carrotClampXBps", carrotClampXBps, 200, "the carrot clamp base is 2% of X-bar — was the flag bond"},
+		{"carrotClampMinCC", carrotClampMinCC, 1_000_000, "with a floor of 1 CC, so the per-voter clamp never collapses on a small court"},
+		{"bondFloorFlatBps", bondFloorFlatBps, 450, "the answer bond's conviction floor is 4.5% of X-bar"},
+		{"bondFloorConvBps", bondFloorConvBps, 10700, "and its conviction arm is 1.07x a side's mid draw — the floor the draw cap allows, since the cap is the bond MINUS the 7% carrot"},
+		{"depositFeeBps", depositFeeBps, 1000, "the claim fee is 10% of the deposit"},
+		{"quorumSupplyBps", quorumSupplyBps, 500, "the full bar's supply floor is 5%"},
+		{"settleDelay", settleDelay, 51_840, "72h before an undisputed answer settles"},
+		{"priorityWindowBlocks", priorityWindowBlocks, 17_280, "24h of answer priority"},
+		{"deadClaimTimeout", deadClaimTimeout, 1_451_520, "12 weeks before an unanswered claim closes"},
+		{"periodBlocks", periodBlocks, 120_960, "one week — the emission accounting period"},
+		{"epochBlocks", epochBlocks, 720, "the checkpoint epoch"},
+		{"curveDenom", curveDenom, 1_000_000_000, "the curve's reciprocal slope"},
+		{"standingFlagBps", standingFlagBps, 10_000, "a settled slash credits standing at par with what it destroyed"},
+		{"standingDisputeBps", standingDisputeBps, 10_000, "and a decided dispute at par with the winner's own posted bond"},
+		{"standingAuthorHighBps", standingAuthorHighBps, 2_000, "authoring a HIGH claim credits 5% of what was on the question"},
+		{"standingConvictionBps", standingConvictionBps, 1_000, "winning conviction credits 10% — the smallest row, because it is the one anyone can repeat"},
+		{"standingUnadjudicatedBps", standingUnadjudicatedBps, 5_000, "an UNDISPUTED claim's winners earn half of that: a dispute is partly noise, so requiring one would punish a staker for not being attacked"},
+	} {
+		if k.got != k.want {
+			t.Errorf("%s is %d, the design says %d (%s) — if this change is deliberate, "+
+				"edit this pin in the same commit", k.name, k.got, k.want, k.what)
+		}
+	}
+
+	// And the RELATIONSHIPS the source comments assert, which a table of values does not
+	// cover: these are what make the numbers consistent with each other.
+	if splitWinners+splitAuthor+splitAnswerer+splitCarrot != 100 {
+		t.Errorf("the P7 split must exhaust D: %d+%d+%d+%d",
+			splitWinners, splitAuthor, splitAnswerer, splitCarrot)
+	}
+	// standing.gno's own ordering claim — "policing >= authorship > staking" — which is
+	// what stops standing becoming a yield on holding rather than a record of work. A
+	// table of values does not cover it, and each row's base differs, so this is the
+	// only place the ORDER itself is asserted.
+	if standingFlagBps < standingAuthorHighBps || standingDisputeBps < standingAuthorHighBps {
+		t.Errorf("policing must credit at least as much as authorship: flag %d, dispute %d, author %d",
+			standingFlagBps, standingDisputeBps, standingAuthorHighBps)
+	}
+	// NOT ASSERTED, AND THE REASON IS THE FINDING: standing.gno claims the
+	// ordering runs "policing >= authorship > staking", and in raw bps it does
+	// not — authorship is 500 and staking is 1000. Today that is not yet a defect,
+	// because the two rows read DIFFERENT bases (authorship scales on the claim's
+	// X-bar, staking on a conviction integral), so their bps are not comparable
+	// and the effective ordering can still hold.
+	//
+	// It becomes a defect the moment both move onto the earner's own
+	// time-averaged stake, which is the correction docs/CLAIM_BOARDS.md records
+	// as owed: on one shared base, 500 against 1000 means authorship pays HALF
+	// what staking pays, inverting the one ordering the file says must not move —
+	// and authorship is the strictly harder gate (two-thirds at the full bar,
+	// seeded excluded) so it should pay more, not less.
+	//
+	// So this assertion is deliberately absent rather than forgotten, and the
+	// re-basing may not land without moving standingAuthorHighBps above
+	// standingConvictionBps in the same commit. That is a calibration change and
+	// therefore an owner call, which is why it is recorded and not made here.
+	// An undisputed stand is worth something and worth LESS. Both halves matter: at
+	// 10000 the slotConsumed distinction would be decorative, at 0 the row would pay
+	// nothing on the path most claims take.
+	if standingUnadjudicatedBps <= 0 || standingUnadjudicatedBps >= 10_000 {
+		t.Errorf("the unadjudicated rate must be a real fraction, not 0 or par: %d",
+			standingUnadjudicatedBps)
+	}
+
+	// court.gno's own claim beside bondFloorFlatBps: "bounty 2% <= 80% x 4.5%". The flag bond is
+	// the bounty's own arm, so the slash floor must cover it at the comp ratio.
+	// The two relations that used to be checked here priced FLAGGING — a flag bond
+	// inside 80% of the slash floor so flagging could not pay more than the slash
+	// it earned, and a frozen bond at 4x b0. Both compared a bond that no longer
+	// exists against a slash that no longer exists, so neither survives the
+	// quality lane. carrotClampXBps keeps its value and its own row above; what it
+	// no longer has is a second quantity to be calibrated AGAINST.
+}
+
+// The other half of the calibration: defaultParams(), the PER-COURT knobs. Distinct from
+// the const block above because these are fields a court carries and fixtures freely
+// override (`c.params.escrowMaxBlocks = 450_000` appears in several), which is a second
+// reason nothing pinned their defaults — the tests that touch them are testing something
+// else and set their own values first.
+//
+// Eight were mutated and SIX survived: the overturn threshold, the grace window, the
+// answerability floor, the claim deposit, and both escrow bounds. Literals again, for the
+// same reason: every fixture reads `c.params.votingBlocks` rather than a number, so the
+// symbol cannot pin itself.
+func TestDefaultParamsAreTheCalibratedValues(t *testing.T) {
+	p := defaultParams()
+	for _, k := range []struct {
+		name string
+		got  int64
+		want int64
+		what string
+	}{
+		{"disputeThresholdBps", p.disputeThresholdBps, 5001,
+			"a bare majority overturns — 5001 is a MAJORITY, not a supermajority"},
+		{"votingBlocks", p.votingBlocks, 120_960, "one week of voting on every lane"},
+		{"graceBlocks", p.graceBlocks, 17_280, "24h of grace"},
+		// Lowered from 100 CC deliberately (a2b1123): ordinary courts took the
+		// supply-relative answer floor at a tenth of meta's fraction, so this
+		// constant became a DUST arm and the fraction carries the policy.
+		{"minAnswerX", p.minAnswerX, 1_000_000, "1 CC — a dust floor; the supply-relative fraction sets the real bar"},
+		{"minClaimDepositCC", p.minClaimDepositCC, 1_000_000, "1 CC to open a claim — the spam price"},
+		{"escrowMinBlocks", p.escrowMinBlocks, 120_960, "the escrow window's floor: one week"},
+		{"escrowMaxBlocks", p.escrowMaxBlocks, 362_880, "and its cap: three weeks (§12 row 30's geometry)"},
+	} {
+		if k.got != k.want {
+			t.Errorf("defaultParams().%s is %d, the design says %d (%s) — if this change "+
+				"is deliberate, edit this pin in the same commit", k.name, k.got, k.want, k.what)
+		}
+	}
+
+	// answerBondCapCC gets its own assertion because ZERO is load-bearing far outside
+	// this function. Wiring a cap makes three guards elsewhere live at once — the
+	// draw-arm/flat-arm asymmetry PostAnswer's floor comment warns about, and the two
+	// clamps that comment lists — none of which has a fixture that can reach them while
+	// the cap is 0. See the note beside the collateralization floor in answer.gno.
+	if p.answerBondCapCC != 0 {
+		t.Errorf("answerBondCapCC must default to 0 (uncapped): got %d. Wiring it arms "+
+			"guards in three other files; mutate those first", p.answerBondCapCC)
+	}
+
+	// The relationships mustSane enforces at runtime, asserted on the DEFAULTS so a
+	// change that would abort every StartCourt fails here first, with a clearer reason.
+	if p.escrowMinBlocks > p.escrowMaxBlocks {
+		t.Errorf("the escrow window's floor must not exceed its cap: %d > %d",
+			p.escrowMinBlocks, p.escrowMaxBlocks)
+	}
+	if p.disputeThresholdBps < 5001 || p.disputeThresholdBps > 10000 {
+		t.Errorf("the overturn threshold must stay in [5001, 10000]: %d",
+			p.disputeThresholdBps)
+	}
+}
+
+// A slug's LENGTH bound, the one leg of mustSlug nothing held. It matters for the
+// same reason its alphabet does: a slug is written raw into every markdown link on
+// the directory and court pages, and an unbounded one is an unbounded page.
+func TestASlugsLengthBoundIsEnforced(cur realm, t *testing.T) {
+	who := testutils.TestAddress("sl-a")
+	testing.SetRealm(testing.NewUserRealm(who))
+	// The inputs are DERIVED from maxSlugLen rather than restating it. This test
+	// was written against a bound of 64 and broke the moment the bound tightened
+	// to 11 — a slug is uppercased into the court coin's GRC20 symbol, so the
+	// ticker's length limit is what sets this one. Deriving means the next move
+	// of that constant carries the test with it instead of falsifying it.
+	long := ""
+	for i := 0; i < maxSlugLen+1; i++ {
+		long += "a"
+	}
+	// The message is matched on its stem, not its number, for the same reason.
+	uassert.AbortsContains(t, cur, "a slug is 1..", func() {
+		StartCourt(cross(cur), long, "too long a slug")
+	})
+	// And exactly maxSlugLen is accepted, so closing the hole did not over-refuse.
+	ok := long[:maxSlugLen]
+	testing.SetRealm(testing.NewUserRealm(who))
+	StartCourt(cross(cur), ok, "exactly at the bound")
+	if !Exists(ok) {
+		t.Error("a slug of exactly maxSlugLen characters was refused")
+	}
+}
+
+// THE COURT DESCRIPTION. Two things are worth pinning: the single-paragraph rule
+// (it renders inline beside a name in list rows, where a newline forges a row),
+// and that a purged court's description goes with its name rather than surviving
+// under a tombstone.
+func TestCourtDesc(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("cd-alice")
+	testCourt(cur, "cdsc", alice, 50_000_000_000)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	AppointMods(cross(cur), "cdsc", 1, alice)
+
+	uassert.Equal(t, "", CourtDesc("cdsc"))
+	testing.SetRealm(testing.NewUserRealm(alice))
+	SetCourtDesc(cross(cur), "cdsc", "Claims of fact from the public record.")
+	uassert.True(t, strings.Contains(CourtDesc("cdsc"), "public record"))
+
+	// A NEWLINE IS REFUSED, because the field renders inline.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "single paragraph", func() {
+		SetCourtDesc(cross(cur), "cdsc", "first\nsecond")
+	})
+	long := ""
+	for i := 0; i < maxCourtDescLen+1; i++ {
+		long += "x"
+	}
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "at most 240", func() {
+		SetCourtDesc(cross(cur), "cdsc", long)
+	})
+
+	// NOT ANYBODY — curation authority, the same single active moderator every
+	// other folder-class write takes.
+	stranger := testutils.TestAddress("cd-stranger")
+	testing.SetRealm(testing.NewUserRealm(stranger))
+	uassert.AbortsContains(t, cur, "moderator", func() {
+		SetCourtDesc(cross(cur), "cdsc", "mine now")
+	})
+}

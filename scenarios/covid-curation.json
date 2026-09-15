@@ -1,0 +1,168 @@
+{
+ "kourtCuration": 1,
+ "court": "covid",
+ "chain": "dev",
+ "note": "local curation \u2014 held in a browser, recorded on no chain",
+ "desc": "A docket on the origins and handling of COVID-19. The folders and the argument graph are ON CHAIN now; this file carries the same shape for demo mode, which has no chain to read, plus the one relation the chain cannot hold: claim-to-claim containment.",
+ "folders": [
+  {
+   "name": "Origins",
+   "claims": [
+    18,
+    15,
+    7,
+    8,
+    9,
+    16,
+    19
+   ],
+   "folders": []
+  },
+  {
+   "name": "Fauci",
+   "claims": [],
+   "folders": [
+    {
+     "name": "Gain-of-function funding",
+     "claims": [
+      10,
+      22,
+      24
+     ],
+     "folders": []
+    },
+    {
+     "name": "Proximal Origin",
+     "claims": [
+      23,
+      17,
+      13
+     ],
+     "folders": []
+    },
+    {
+     "name": "The iPhone texts",
+     "claims": [
+      20,
+      21,
+      25
+     ],
+     "folders": []
+    }
+   ]
+  },
+  {
+   "name": "Vaccine safety claims",
+   "claims": [
+    11,
+    12,
+    14
+   ],
+   "folders": []
+  }
+ ],
+ "relations": [
+  {
+   "from": 9,
+   "to": 8,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 19,
+   "to": 16,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 25,
+   "to": 21,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 12,
+   "to": 11,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 15,
+   "to": 7,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 15,
+   "to": 18,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 10,
+   "to": 22,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 10,
+   "to": 18,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 17,
+   "to": 23,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 13,
+   "to": 23,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 20,
+   "to": 21,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 17,
+   "to": 24,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 19,
+   "to": 23,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 14,
+   "to": 21,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 12,
+   "to": 14,
+   "type": "bears",
+   "stance": "contradicts"
+  },
+  {
+   "from": 7,
+   "to": 8,
+   "type": "bears",
+   "stance": "supports"
+  },
+  {
+   "from": 18,
+   "to": 7,
+   "type": "bears",
+   "stance": "supports"
+  }
+ ]
+}
