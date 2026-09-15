@@ -175,7 +175,7 @@ func EnableTestClock(cur realm) {
 	if tcArmed {
 		panic("kourtv2: the test clock is already armed")
 	}
-	if CourtCount() > 2 {
+	if CourtCount() > 1 {
 		panic("kourtv2: this realm already has courts; the test clock cannot be armed")
 	}
 	// The meta court exists from init and is a fully working court — it takes
@@ -186,7 +186,7 @@ func EnableTestClock(cur realm) {
 		panic("kourtv2: this realm has been used; the test clock cannot be armed")
 	}
 	tcArmed = true
-
+	tcEverArmed = true         // never cleared again, not even by sealing
 	tcBase = time.Now().Unix() // the clock stops here until the scenario moves it
 	// The cap applies to the CAPTURED base too, or the invariant tcBase <= maxBase
 	// holds at only one of this field's two writers. Block time is the proposer's

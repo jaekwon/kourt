@@ -152,32 +152,32 @@ the realm — several hundred deliberate defects, each asserting which suite obj
 
 ---
 
-## Known red, and it is not the build
+## A note on the test clock
 
-Four of `make check`'s fifteen targets fail here, all on **one** defect in the
-test-clock disclosure. They fail identically in the repository this was split out
-of; the split did not cause them and does not hide them.
+`r/kourtv2/testclock.gno` carried two planted defects for a while, and how they
+got there is worth recording: a `make mutate` run was killed part-way, leaving its
+mutants in the working tree, and the next commit swept them up. The commit is
+`d639cea` in the application repository, whose message is entirely about wallet
+signing and never mentions the realm. Both changes were verbatim the `find` →
+`replace` of two rows in `scripts/mutations-kourtv2-KNOWN-GAPS.json`:
 
-1. `r/kourtv2/testclock.gno` declares `tcEverArmed` and reads it in
-   `TestClockFabricated()`, but nothing in the **arming path** ever sets it. Only
-   `testclock_test.gno` writes it. So a chain whose clock *has* been fabricated
-   reports that it has not.
-2. The arming gate reads `if CourtCount() > 2`, while the mutation corpus records
-   the audited rule as `> 1`. A realm with a used meta court plus one more is still
-   armable.
+    if CourtCount() > 1  ->  if CourtCount() > 2      the arming gate widened
+    tcEverArmed = true   ->  (deleted)                the disclosure never set
 
-They surface four ways, all downstream of the same two facts:
+The second is the worse one: `TestClockFabricated()` reads `tcEverArmed`, so a
+chain whose clock HAS been fabricated answered that it had not. Both are reverted.
 
-- `make txtar-test` — `kourtv2_testclock` and `scn_dispute`/`scn_covid` look for a
-  disclosure of `true` and get `false`; `kourtv2_usedrealm_seeded` expects the
-  arming gate to refuse and it does not.
-- `make anchors` and `make collisions` — the two mutation-corpus rows that describe
-  these defects can no longer find their anchors, *because the source now reads the
-  way the rows describe the mutant*.
-- `make elsewhere-test` — the same two rows, from the other direction.
+What makes this worth a section rather than a line in a log: the repository's own
+checks caught it and said so in four places at once — `anchors` and `collisions`
+could no longer find those rows' anchors, because the source had come to read the
+way the rows describe the MUTANT; `txtar-test` failed on the disclosure and on the
+arming gate; `elsewhere-test` on the same two rows from the other direction. Four
+red targets, one cause, and the cause was that the corpus and the source agreed
+when they are supposed to disagree.
 
-That is the whole of it. `make test` and the other eleven `check` targets are green,
-and so is `go vet` on both harnesses.
+`make mutate` restores what it plants. A killed run does not, which is why
+`scripts/repolock.py` exists — and why a run that dies still leaves work to undo
+by hand.
 
 ---
 
