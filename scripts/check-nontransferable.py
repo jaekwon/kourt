@@ -53,6 +53,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gnosource import strip_comments
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -93,10 +94,14 @@ SUSPECT = re.compile(
 SENDCOINS = re.compile(r"\bSendCoins\s*\(")
 SENDCOINS_ALLOWED = {("kourtv1", "buy.gno"): 1, ("kourtv2", "buy.gno"): 2,
                      ("kourtv2", "courtburn.gno"): 1,
-                     # THE THIRD GENERATION, at the second's counts while it is still a
-                     # copy: the burn and the dust change in buy.gno, the creation burn
-                     # in courtburn.gno. The two-way change re-derives these rows.
-                     ("kourtv3", "buy.gno"): 2, ("kourtv3", "courtburn.gno"): 1}
+                     # THE THIRD GENERATION: the burn share and the dust change in
+                     # buy.gno, the creation burn in courtburn.gno, and the ONE send
+                     # the whole generation exists for — Redeem's pro-rata payout in
+                     # redeem.gno. That one is user-destined by design, so the count
+                     # alone would be a blank cheque; PRO_RATA_ONLY below is the rule
+                     # that keeps it a payout and nothing else.
+                     ("kourtv3", "buy.gno"): 2, ("kourtv3", "courtburn.gno"): 1,
+                     ("kourtv3", "redeem.gno"): 1}
 
 # courtburn.gno's ONE send is an OWNER DECISION, and a count alone would be a
 # blank cheque for it — so the entry comes with a rule that keeps the property
@@ -116,6 +121,53 @@ SENDCOINS_ALLOWED = {("kourtv1", "buy.gno"): 1, ("kourtv2", "buy.gno"): 2,
 # back out, which is what let the refund path be deleted rather than exempted.
 SINK_ONLY = {("kourtv2", "courtburn.gno"), ("kourtv3", "courtburn.gno")}
 SINK_DEST = re.compile(r"burnSinkPath")
+
+# PRO-RATA ONLY. The two-way generation lets GNOT leave to a user through ONE
+# more door than Buy's dust change, and this is what keeps that door the size
+# it was designed: redeem.gno's single send must be the payout, to the caller,
+# and the court's reserve must have been debited by that same payout on a line
+# ABOVE it. Every other `reserve` write in the generation must be Buy's credit.
+# So a redeem that pays `amount` (coin units as GNOT), pays somebody else, pays
+# before it debits, or never debits, is caught here by text — and the arithmetic
+# half that text cannot check (bank(realm) ≥ TotalReserveGNOT(), == on a clean
+# path; payout == floor(reserve × amount / supply)) is
+# TestReservesReconcileWithTheBank and kourtv3_money.txtar, named here so a
+# reader knows where the other half lives.
+PRO_RATA_ONLY = {("kourtv3", "redeem.gno")}
+PRO_RATA_SEND = re.compile(
+    r"SendCoins\(\s*cur\.Address\(\),\s*who,\s*chain\.Coins\{chain\.NewCoin\(gnotDenom,\s*payout\)\}\s*\)")
+RESERVE_DEBIT = "\tc.reserve -= payout\n"
+# Every write to a court's reserve, anywhere in the generation, must be one of
+# these two lines. A third — an admin sweep, a rebate, a "fix" — is the custody
+# surface this design says it does not have.
+RESERVE_WRITE = re.compile(r"\.reserve\s*(?:\+=|-=|=)(?!=)")
+RESERVE_WRITES_ALLOWED = {
+    ("kourtv3", "buy.gno"): ["c.reserve = mustAdd(c.reserve, reserved)"],
+    ("kourtv3", "redeem.gno"): ["c.reserve -= payout"],
+}
+# THE CENSUS FLOOR. A blinded RESERVE_WRITE matches nothing, flags nothing, and
+# would pass — check-guards-blind's exact complaint. Two writes are KNOWN to
+# exist (Buy's credit, Redeem's debit); a scan that finds fewer than two has
+# broken, not found a clean tree. Fixtures pin the pattern's reading as well.
+RESERVE_WRITES_FLOOR = 2
+RESERVE_WRITE_MUST_FIRE = [
+    "\tc.reserve = mustAdd(c.reserve, reserved)",
+    "\tc.reserve -= payout",
+    "\tmc.reserve += x",
+]
+RESERVE_WRITE_MUST_NOT_FIRE = [
+    "\tif c.reserve <= 0 {",
+    "\tif payout > c.reserve {",
+    "\tif c.reserve == want {",
+]
+PRO_RATA_MUST_FIRE = [
+    "\tb.SendCoins(cur.Address(), who, chain.Coins{chain.NewCoin(gnotDenom, payout)})",
+]
+PRO_RATA_MUST_NOT_FIRE = [
+    "\tb.SendCoins(cur.Address(), who, chain.Coins{chain.NewCoin(gnotDenom, amount)})",   # coin units paid as GNOT
+    "\tb.SendCoins(cur.Address(), c.escrow, chain.Coins{chain.NewCoin(gnotDenom, payout)})",  # wrong destination
+    "\tb.SendCoins(cur.Address(), buyer, chain.Coins{chain.NewCoin(gnotDenom, r)})",      # Buy's dust change
+]
 
 # Exact names both patterns would otherwise trip on. WithdrawStake and
 # WithdrawBonus are the reason REDEEM needs a list at all: they return a holder's
@@ -156,6 +208,23 @@ def main() -> int:
             hits.append(("SELFTEST", "-", "check-nontransferable.py", 0,
                          "SUSPECT reads %r as a standing transfer; it is not one, and a "
                          "guard that cries wolf gets switched off" % line.strip()))
+    for line in PRO_RATA_MUST_FIRE:
+        if not PRO_RATA_SEND.search(line):
+            hits.append(("SELFTEST", "-", "check-nontransferable.py", 0,
+                         "PRO_RATA_SEND no longer reads %r as the payout" % line.strip()))
+    for line in PRO_RATA_MUST_NOT_FIRE:
+        if PRO_RATA_SEND.search(line):
+            hits.append(("SELFTEST", "-", "check-nontransferable.py", 0,
+                         "PRO_RATA_SEND reads %r as the payout; it is not" % line.strip()))
+    for line in RESERVE_WRITE_MUST_FIRE:
+        if not RESERVE_WRITE.search(line):
+            hits.append(("SELFTEST", "-", "check-nontransferable.py", 0,
+                         "RESERVE_WRITE no longer reads %r as a reserve write" % line.strip()))
+    for line in RESERVE_WRITE_MUST_NOT_FIRE:
+        if RESERVE_WRITE.search(line):
+            hits.append(("SELFTEST", "-", "check-nontransferable.py", 0,
+                         "RESERVE_WRITE reads %r as a write; it is a read" % line.strip()))
+    reserve_writes_seen = 0
     for realm in REALMS:
         d = ROOT / "r" / realm
         files = [p for p in sorted(d.glob("*.gno")) if not p.name.endswith("_test.gno")]
@@ -166,7 +235,10 @@ def main() -> int:
             return 1
         for p in files:
             scanned += 1
-            src = p.read_text()
+            # COMMENTS STRIPPED, because a comment that says "SendCoins(" is not
+            # a send and counted as one until this line — the rule check-getcoins
+            # already keeps for the same reason.
+            src = strip_comments(p.read_text())
             for m in SUSPECT.finditer(src):
                 name = m.group(0)[len("func "):].split("(")[0]
                 if name in ALLOWED:
@@ -195,7 +267,37 @@ def main() -> int:
                         hits.append(("GNOT leaves the realm", realm, p.name, line,
                                      "a sink-only file sends somewhere that is "
                                      "not burnSinkPath"))
+            # The pro-rata door: its one send is the payout to the caller, and the
+            # reserve was debited by that payout above it.
+            if (realm, p.name) in PRO_RATA_ONLY:
+                for m in SENDCOINS.finditer(src):
+                    tail = src[m.start(): m.start() + 200]
+                    line = src[: m.start()].count("\n") + 1
+                    if not PRO_RATA_SEND.search(tail):
+                        hits.append(("GNOT leaves the realm", realm, p.name, line,
+                                     "sends something that is not the pro-rata payout "
+                                     "to the caller"))
+                    elif src.count(RESERVE_DEBIT) != 1 or src.index(RESERVE_DEBIT) > m.start():
+                        hits.append(("GNOT leaves the realm", realm, p.name, line,
+                                     "never debits the reserve before paying "
+                                     "(c.reserve -= payout, exactly once, above the send)"))
+            # And no third hand on the reserve, anywhere in the generation.
+            if realm == "kourtv3":
+                allowed = RESERVE_WRITES_ALLOWED.get((realm, p.name), [])
+                for m in RESERVE_WRITE.finditer(src):
+                    reserve_writes_seen += 1
+                    stmt = src[src.rfind("\n", 0, m.start()) + 1: src.find("\n", m.end())].strip()
+                    if stmt not in allowed:
+                        line = src[: m.start()].count("\n") + 1
+                        hits.append(("GNOT leaves the realm", realm, p.name, line,
+                                     f"writes a court's reserve outside Buy's credit and "
+                                     f"Redeem's debit: {stmt}"))
 
+    if reserve_writes_seen < RESERVE_WRITES_FLOOR:
+        hits.append(("SELFTEST", "kourtv3", "-", 0,
+                     f"RESERVE_WRITE found {reserve_writes_seen} reserve write(s), below the "
+                     f"floor of {RESERVE_WRITES_FLOOR}; the pattern broke rather than the tree "
+                     f"coming clean"))
     if hits:
         print("check-nontransferable: something that must not be movable "
               "appears to have become movable.\n", file=sys.stderr)
@@ -208,18 +310,22 @@ def main() -> int:
               "sold — the answer-priority window and the difficulty record both "
               "price a CAREER, and a sellable one prices nothing. If this is "
               "intended, it is an owner decision: say so here and in "
-              "MODERATION.md, and price rent-a-lead first.\n\nAnd no GNOT may "
-              "leave the realm to a user: SendCoins belongs in buy.gno only, at "
-              "the pinned count (the burn, plus the buyer's dust change). A new "
-              "one anywhere is a redemption path, and \"the payment is burned, "
-              "nothing ever redeems\" is the claim REGULATIONS.md rests on.",
+              "MODERATION.md, and price rent-a-lead first.\n\nAnd GNOT leaves "
+              "this realm to a user through exactly two doors: Buy's dust change, "
+              "and — in the two-way generation — Redeem's pro-rata payout, which "
+              "must be the payout the reserve was debited by, to the caller, and "
+              "nothing else. Every other SendCoins names the keyless sink, at the "
+              "pinned count per file; every other write to a court's reserve is "
+              "Buy's credit. A send or a reserve write that fits none of those is "
+              "a new door, and TWOWAY.md is where the design says there is none.",
               file=sys.stderr)
         return 1
 
     print(f"check-nontransferable: {scanned} realm files, no entrypoint moves "
-          f"an address's record and none redeems CC for GNOT. Coin is "
-          f"transferable between holders by decision; standing and the one-way "
-          f"curve are not.")
+          f"an address's record; GNOT reaches a user only as Buy's change or as "
+          f"Redeem's pro-rata payout, and nothing but Buy and Redeem touches a "
+          f"court's reserve. Coin is transferable between holders by decision; "
+          f"standing is not.")
     return 0
 
 

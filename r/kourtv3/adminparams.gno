@@ -8,7 +8,7 @@
 // of nine queries and knowing which nine — which means in practice nobody asked
 // it, and a setting left at a value nobody intended could sit there unnoticed.
 //
-// SEVEN PARAMETERS, and the boundary is exactly "the global DAO admin can set
+// EIGHT PARAMETERS, and the boundary is exactly "the global DAO admin can set
 // it". Per-court knobs are deliberately not here: SetCourtAssociationBond,
 // SetCourtLadder and SetCourtCreditRates are a court moderator's business, they
 // belong on that court's own page, and mixing the two would misrepresent who
@@ -69,7 +69,7 @@ func daoSeats() int {
 // AdminParams packs every realm-wide, admin-settable parameter and its live
 // value, one line, `key:value` pairs separated by semicolons:
 //
-//	admin:<address>;creationBurn:<ugnot>;assocBond:<ugnot>;purgeM:<n>;
+//	admin:<address>;creationBurn:<ugnot>;burnBps:<bps>;assocBond:<ugnot>;purgeM:<n>;
 //	t1:<bps>;t2:<bps>;t3:<bps>;entry:<n>;l2:<n>;l3:<n>;
 //	flag:<bps>;dispute:<bps>;authorHigh:<bps>;conviction:<bps>;unadjudicated:<bps>;
 //	domain:<host>;mediaExact:<csv>;mediaSuffix:<csv>
@@ -90,6 +90,7 @@ func AdminParams() string {
 	n := func(v int64) string { return strconv.FormatInt(v, 10) }
 	return "admin:" + adminAddr().String() +
 		";creationBurn:" + n(courtCreationBurn) +
+		";burnBps:" + n(burnBps) +
 		";assocBond:" + n(assocBondDefault) +
 		";purgeM:" + strconv.Itoa(purgeThreshold()) +
 		";t1:" + n(l.t1Bps) +
@@ -141,6 +142,13 @@ func renderAdminParams() string {
 		" GNOT | The minimum a new court costs to open. The whole payment is " +
 		"burned. 0 turns it off, and off is the shipped default. | " +
 		"`SetCourtCreationBurn` |\n")
+	b.WriteString("| Burn share of each offering | " + pct(burnBps, bpsDenom) +
+		" | Of every payment for a court's coin, this much burns to the keyless " +
+		"sink for good; the rest is held by that court for all of its coin and " +
+		"paid back pro-rata to anyone who returns coin. One-way courts burn all " +
+		"of it. Applies to payments after the change; " +
+		strconv.FormatInt(minBurnBps, 10) + "–" + strconv.FormatInt(maxBurnBps, 10) +
+		" bps. | `SetBurnBps` |\n")
 	b.WriteString("| Association bond | " + ccAmt(assocBondDefault) +
 		" CC | What a stranger posts to attach an edge, in courts that set no " +
 		"override. | `SetAssociationBondDefault` |\n")
@@ -194,6 +202,9 @@ func renderAdminParams() string {
 	b.WriteString("\nBurned to date, across every court and every creation: **" +
 		ugnotAmt(BurnedGNOT()) + " GNOT**, held at `" + BurnSink().String() +
 		"` — an address derived from a sub-realm identity that is never created, " +
-		"so no key to it exists and nothing can ever be spent from it.\n")
+		"so no key to it exists and nothing can ever be spent from it. " +
+		"Held for coin, across every court: **" + ugnotAmt(TotalReserveGNOT()) +
+		" GNOT**, at this realm's own address — which no instruction but a " +
+		"holder returning coin for its pro-rata share can move.\n")
 	return b.String()
 }

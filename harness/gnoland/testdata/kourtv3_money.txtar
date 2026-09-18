@@ -1,8 +1,10 @@
-# V2 money core against a real node. The one claim a unit harness cannot make:
-# Buy's GNOT really LEAVES — the realm account keeps nothing, the keyless burn
-# sink (a never-created sub-realm address) really receives it, and the realm's
-# own BurnedGNOT() read agrees with the bank. In-harness, testing.SetOriginSend
-# declares an envelope without crediting anyone; here the coins move or fail.
+# V3 money core against a real node. The one claim a unit harness cannot make:
+# Buy's GNOT really SPLITS — a tenth reaches the keyless burn sink (a
+# never-created sub-realm address), nine tenths stay at the realm's own account
+# as the court's reserve, the realm's own reads agree with the bank — and Redeem
+# really PAYS: coin is destroyed and exactly the quoted pro-rata share arrives
+# back at the redeemer. In-harness, testing.SetOriginSend declares an envelope
+# without crediting anyone; here the coins move or fail.
 #
 # Also on-chain-checked: CC escrow conservation through OpenClaim/Stake/Unstake,
 # zero emission before any verdict (the 20% ceiling starts at literal zero), and
@@ -55,20 +57,35 @@ stdout 'data: ""'
 gnokey query bank/balances/${SINK}
 stdout 'data: ""'
 
-# --- Buy: real GNOT in, and it does NOT stay -----------------------------------
-# 50 GNOT sent. The curve mints CC to the buyer; the spent GNOT is sent to the
-# burn sink in the same call. The realm account must end EMPTY — a realm that
-# keeps the GNOT is quietly holding a treasury V2 promised not to have.
+# The test clock is never armed on a real deploy, and this file says so before
+# any money moves: an armed clock on a chain holding reserve GNOT would let the
+# deployer release vote locks and roll emission at will (TWOWAY.md).
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.TestClockFabricated()"
+stdout '\(false bool\)'
+
+# --- Buy: real GNOT in, and it SPLITS ------------------------------------------
+# 50 GNOT sent. The curve mints CC to the buyer; a tenth (BurnBps 1000) is sent
+# to the burn sink in the same call and the rest STAYS at the realm's account as
+# this court's reserve. Both halves are read back two ways — the bank, and the
+# realm's own ledgered counters — and they must agree to the µGNOT.
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout '\([1-9][0-9]* int64\)'
 stdout 'OK!'
 
 gnokey query bank/balances/${COURTV3}
-stdout 'data: ""'
+stdout 'data: "45000000ugnot"'
 gnokey query bank/balances/${SINK}
-stdout 'data: "50000000ugnot"'
+stdout 'data: "5000000ugnot"'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.BurnedGNOT()"
-stdout '\(50000000 int64\)'
+stdout '\(5000000 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ReserveGNOT(\"bedford\")"
+stdout '\(45000000 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.TotalReserveGNOT()"
+stdout '\(45000000 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CourtBurnedGNOT(\"bedford\")"
+stdout '\(5000000 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.BurnBps()"
+stdout '\(1000 int64\)'
 # The curve's mint is deterministic: 50 GNOT mints exactly 316227766 CC base
 # units, ALL held by the buyer — curve-minted == buyer balance == total supply
 # (no other mint path has run; EmittedTotal stays literal zero pre-verdict).
@@ -81,13 +98,60 @@ stdout '\(316227766 int64\)'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.EmittedTotal(\"bedford\")"
 stdout '\(0 int64\)'
 
-# A second buy accumulates in the sink — one-way, monotone.
+# A second buy accumulates in both: the sink's share is monotone, the reserve
+# grows by the held share. 5 GNOT at this position mints 15,434,713 more units.
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 5000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 gnokey query bank/balances/${SINK}
-stdout 'data: "55000000ugnot"'
+stdout 'data: "5500000ugnot"'
+gnokey query bank/balances/${COURTV3}
+stdout 'data: "49500000ugnot"'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.BurnedGNOT()"
-stdout '\(55000000 int64\)'
+stdout '\(5500000 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CurvePosition(\"bedford\")"
+stdout '\(331662479 int64\)'
+
+# --- Redeem: real GNOT OUT, exactly the quoted share ---------------------------
+# The quote is floor(reserve × amount / supply) = floor(49,500,000 × 1e8 /
+# 331,662,479) = 14,924,811 µGNOT. Redeem must pay exactly that, destroy exactly
+# the amount, leave the curve position where it was, leave the sink alone, and
+# move both the bank balance and the ledgered reserve by the same figure. No
+# -send: Redeem takes no GNOT and refuses any that is attached.
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.RedeemValue(\"bedford\",100000000)"
+stdout '\(14924811 int64\)'
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Redeem -args bedford -args 100000000 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stdout '\(14924811 int64\)'
+stdout 'OK!'
+gnokey query bank/balances/${COURTV3}
+stdout 'data: "34575189ugnot"'
+gnokey query bank/balances/${SINK}
+stdout 'data: "5500000ugnot"'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ReserveGNOT(\"bedford\")"
+stdout '\(34575189 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.TotalReserveGNOT()"
+stdout '\(34575189 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.RedeemedGNOT(\"bedford\")"
+stdout '\(14924811 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CoinSupply(\"bedford\")"
+stdout '\(231662479 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CurvePosition(\"bedford\")"
+stdout '\(331662479 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CourtBurnedGNOT(\"bedford\")"
+stdout '\(5500000 int64\)'
+# A single base unit returns no whole µGNOT here, and is refused rather than
+# burned for nothing; the refusal names the smallest amount that would.
+! gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Redeem -args bedford -args 1 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stderr 'too small to return a µGNOT'
+# The meta court is founded one-way: a direct offering burns in full and nothing
+# is ever held for it.
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stdout 'OK!'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ReserveGNOT(\"meta\")"
+stdout '\(0 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.RedeemValue(\"meta\",1000000)"
+stdout '\(0 int64\)'
+gnokey query bank/balances/${SINK}
+stdout 'data: "6500000ugnot"'
 
 # --- Claim + stake: real CC escrow conservation ---------------------------------
 # OpenClaim escrows deposit (1 CC) + fee (0.1 CC) = 1_100_000 base units.
@@ -115,9 +179,9 @@ stdout '500000 int64'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.LockedOf(\"bedford\",\"${USER_ADDR}\")"
 stdout '\(500000 int64\)'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.SpendableOf(\"bedford\",\"${USER_ADDR}\")"
-stdout '\(330062479 int64\)'
+stdout '\(230062479 int64\)'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CoinBalanceOf(\"bedford\",\"${USER_ADDR}\")"
-stdout '\(330562479 int64\)'
+stdout '\(230562479 int64\)'
 
 # Unstake it all: the lock clears and the escrow is untouched throughout, because
 # the stake was never in it. Conservation, on a real ledger, not a mock.

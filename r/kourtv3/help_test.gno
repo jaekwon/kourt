@@ -102,7 +102,7 @@ func TestACourtLeadsWithItsClaimsNotItsPlumbing(cur realm, t *testing.T) {
 		}
 	}
 	// Each house term is glossed where it is printed, not in a legend elsewhere.
-	for _, gloss := range []string{"waiting to be earned", "there is no sell side"} {
+	for _, gloss := range []string{"waiting to be earned", "held for the coin"} {
 		if !strings.Contains(page, gloss) {
 			t.Fatal("an unglossed house term: " + gloss)
 		}
@@ -270,8 +270,11 @@ func TestTheHelpPageNamesTheRightCurrency(cur realm, t *testing.T) {
 	if !strings.Contains(page, "Stake the court's coin on YES or NO") {
 		t.Fatal("the staking sentence must name the court's coin")
 	}
-	if !strings.Contains(page, "burns GNOT one way") {
-		t.Fatal("the page must still say the purchase is one-way")
+	if !strings.Contains(page, "is burned for good") || !strings.Contains(page, "paid back pro-rata") {
+		t.Fatal("the page must say which part of the payment burns and how the rest comes back")
+	}
+	if strings.Contains(page, "no sell side") || strings.Contains(page, "no redemption") {
+		t.Fatal("the page must not describe the coin as one-way; that is a court's choice, not the realm's")
 	}
 
 	// COIN AND STANDING ARE DIFFERENT THINGS. The page ran them together as "the

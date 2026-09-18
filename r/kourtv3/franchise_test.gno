@@ -36,8 +36,12 @@ func TestMetaFranchise(cur realm, t *testing.T) {
 		t.Fatalf("equal burns must accrue equal franchise: fresh=%d expensive=%d",
 			FranchiseOf(fresh), FranchiseOf(expensive))
 	}
-	if FranchiseOf(fresh) != 100_000_000 {
-		t.Fatalf("the entitlement is the µGNOT actually burned, got %d", FranchiseOf(fresh))
+	// THE BURNED SHARE, NOT THE PAYMENT: 100 GNOT paid, a tenth of it destroyed,
+	// and that tenth is the entitlement. The held share is what Redeem can pay
+	// back, and a franchise credited on it would be minted for free on a court
+	// where the buyer is the only holder — TestAShellCourtLapAccruesOnlyWhatItBurns.
+	if FranchiseOf(fresh) != 10_000_000 {
+		t.Fatalf("the entitlement is the µGNOT actually burned — the burn share — got %d", FranchiseOf(fresh))
 	}
 
 	// Nothing is minted until it is CLAIMED — that is what keeps meta's supply

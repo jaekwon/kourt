@@ -193,8 +193,8 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "7.4: the DIRECTORY renders the inflation ceiling",
-  "find": "\tb.WriteString(\"Stake on claims of fact. Your principal always returns 1\u00d7.\\n\\n\")",
-  "replace": "\tb.WriteString(\"Stake on claims of fact. Your principal always returns 1\u00d7. Inflation ceiling 20%.\\n\\n\")"
+  "find": "\tb.WriteString(\"Stake on claims of fact. Your principal always returns 1×.\\n\\n\")",
+  "replace": "\tb.WriteString(\"Stake on claims of fact. Your principal always returns 1×. Inflation ceiling 20%.\\n\\n\")"
  },
  {
   "pkg": "kourtv3",
@@ -227,8 +227,8 @@
  {
   "pkg": "kourtv3",
   "file": "buy.gno",
-  "label": "Buy: the spent GNOT is never burned",
-  "find": "\tb.SendCoins(cur.Address(), chain.PackageAddress(burnSinkPath),\n\t\tchain.Coins{chain.NewCoin(gnotDenom, spent)})",
+  "label": "Buy: the burn share is never sent to the sink",
+  "find": "\tb.SendCoins(cur.Address(), chain.PackageAddress(burnSinkPath),\n\t\tchain.Coins{chain.NewCoin(gnotDenom, burned)})",
   "replace": ""
  },
  {
@@ -438,7 +438,7 @@
   "pkg": "kourtv3",
   "file": "meta.gno",
   "label": "meta: a manufactured contest may seize authority (credEligible removed)",
-  "find": "\t\t\tpanic(\"kourtv3: a manufactured contest cannot seize authority \u2014 this verb needs weight voted against it\")\n",
+  "find": "\t\t\tpanic(\"kourtv3: a manufactured contest cannot seize authority — this verb needs weight voted against it\")\n",
   "replace": ""
  },
  {
@@ -557,7 +557,7 @@
   "pkg": "kourtv3",
   "file": "stake.gno",
   "label": "staking is not frozen by an answer",
-  "find": "\tif cs.frozenAt != 0 {\n\t\tpanic(\"kourtv3: staking is frozen \u2014 this claim has an answer\")\n\t}",
+  "find": "\tif cs.frozenAt != 0 {\n\t\tpanic(\"kourtv3: staking is frozen — this claim has an answer\")\n\t}",
   "replace": ""
  },
  {
@@ -689,7 +689,7 @@
  {
   "pkg": "kourtv3",
   "file": "answer.gno",
-  "label": "PostAnswer: the freeze does not pin rateAcc \u2014 H1's conviction pin is never taken",
+  "label": "PostAnswer: the freeze does not pin rateAcc — H1's conviction pin is never taken",
   "find": "\tcs.rateAccAtFreeze = c.rateAccFP",
   "replace": ""
  },
@@ -697,7 +697,7 @@
   "pkg": "kourtv3",
   "file": "answer.gno",
   "label": "PostAnswer: xBarFrozen is never pinned, so every %-of-X quantity reads zero (P6 base unset)",
-  "find": "\tcs.xBarFrozen = xbar // P6: the one base for every later %-of-X\u0304 quantity",
+  "find": "\tcs.xBarFrozen = xbar // P6: the one base for every later %-of-X̄ quantity",
   "replace": ""
  },
  {
@@ -1308,7 +1308,7 @@
  },
  {
   "label": "modrender: a purged claim renders its title instead of the tombstone",
-  "find": "\t\t\tif clm.purged {\n\t\t\t\treturn \"[removed \u00b7 \" + sanitize.InlineText(clm.tombstone) + \"]\"\n\t\t\t}\n",
+  "find": "\t\t\tif clm.purged {\n\t\t\t\treturn \"[removed · \" + sanitize.InlineText(clm.tombstone) + \"]\"\n\t\t\t}\n",
   "replace": "",
   "pkg": "kourtv3",
   "file": "modrender.gno"
@@ -2042,7 +2042,7 @@
   "pkg": "kourtv3",
   "file": "claim.gno",
   "label": "OpenClaim: the provisional sentinel is the int8 zero, which reads as sideYES",
-  "find": "\t\tprovisional:  -1, // int8 zero is sideYES \u2014 the sentinel must be explicit",
+  "find": "\t\tprovisional:  -1, // int8 zero is sideYES — the sentinel must be explicit",
   "replace": "\t\tprovisional: 0,"
  },
  {
@@ -2111,7 +2111,7 @@
  {
   "pkg": "kourtv3",
   "file": "court.gno",
-  "label": "CONST answerBondBps halved (6%\u00b7X-bar -> 3%)",
+  "label": "CONST answerBondBps halved (6%·X-bar -> 3%)",
   "find": "\tanswerBondBps = int64(600)",
   "replace": "\tanswerBondBps = int64(300)"
  },
@@ -2161,7 +2161,7 @@
   "pkg": "kourtv3",
   "file": "court.gno",
   "label": "CONST periodBlocks halved (1 week -> half)",
-  "find": "\tperiodBlocks = int64(120_960) // 1 week \u2014 the emission accounting period",
+  "find": "\tperiodBlocks = int64(120_960) // 1 week — the emission accounting period",
   "replace": "\tperiodBlocks = int64(60_480)"
  },
  {
@@ -2937,7 +2937,7 @@
  {
   "pkg": "governor",
   "file": "governor.gno",
-  "label": "settle: there is no timelock \u2014 ready is now",
+  "label": "settle: there is no timelock — ready is now",
   "find": "\t\tp.ready = now + p.rules.DelayBlocks",
   "replace": "\t\tp.ready = now"
  },
@@ -3064,7 +3064,7 @@
   "pkg": "governor",
   "file": "governor.gno",
   "label": "propose: a chain with no sealed epoch may still vote",
-  "find": "\tif at == 0 {\n\t\tpanic(\"govern: no sealed epoch yet \u2014 the chain is too young to vote\")\n\t}",
+  "find": "\tif at == 0 {\n\t\tpanic(\"govern: no sealed epoch yet — the chain is too young to vote\")\n\t}",
   "replace": ""
  },
  {
@@ -3267,8 +3267,8 @@
   "pkg": "governor",
   "file": "governor.gno",
   "label": "clip: the cut lands inside the character BEFORE the boundary",
-  "find": "\tfor n > 0 && s[n]&0xC0 == 0x80 {\n\t\tn--\n\t}\n\treturn s[:n] + \"\u2026\"",
-  "replace": "\tfor n > 0 && s[n]&0xC0 == 0x80 {\n\t\tn--\n\t}\n\tn--\n\treturn s[:n] + \"\u2026\""
+  "find": "\tfor n > 0 && s[n]&0xC0 == 0x80 {\n\t\tn--\n\t}\n\treturn s[:n] + \"…\"",
+  "replace": "\tfor n > 0 && s[n]&0xC0 == 0x80 {\n\t\tn--\n\t}\n\tn--\n\treturn s[:n] + \"…\""
  },
  {
   "pkg": "governor",
@@ -3904,8 +3904,8 @@
   "pkg": "governor",
   "file": "governor.gno",
   "label": "renderOne: an absolute quorum floor is rendered as a FRACTION of engaged",
-  "find": "\tif p.quorumFloor > 0 {\n\t\tout += ufmt.Sprintf(\"\\nturnout %d of %d, needs %d \u00b7 \"",
-  "replace": "\tif p.quorumFloor < 0 {\n\t\tout += ufmt.Sprintf(\"\\nturnout %d of %d, needs %d \u00b7 \""
+  "find": "\tif p.quorumFloor > 0 {\n\t\tout += ufmt.Sprintf(\"\\nturnout %d of %d, needs %d · \"",
+  "replace": "\tif p.quorumFloor < 0 {\n\t\tout += ufmt.Sprintf(\"\\nturnout %d of %d, needs %d · \""
  },
  {
   "pkg": "governor",
@@ -4037,8 +4037,8 @@
   "pkg": "governor",
   "file": "governor.gno",
   "label": "proposalLine: a row does not end its markdown list item",
-  "find": "\treturn ufmt.Sprintf(\"- [#%d](:%d) **%s** \u2014 `%s` \u00b7 %s\\n\",",
-  "replace": "\treturn ufmt.Sprintf(\"- [#%d](:%d) **%s** \u2014 `%s` \u00b7 %s\","
+  "find": "\treturn ufmt.Sprintf(\"- [#%d](:%d) **%s** — `%s` · %s\\n\",",
+  "replace": "\treturn ufmt.Sprintf(\"- [#%d](:%d) **%s** — `%s` · %s\","
  },
  {
   "pkg": "govern",
@@ -4681,7 +4681,7 @@
   "pkg": "kourtv3",
   "file": "stake.gno",
   "label": "Unstake: a FROZEN claim still releases principal",
-  "find": "\tif cs.frozenAt != 0 {\n\t\tpanic(\"kourtv3: stakes are frozen \u2014 withdraw at settlement (principal is never withheld)\")\n\t}",
+  "find": "\tif cs.frozenAt != 0 {\n\t\tpanic(\"kourtv3: stakes are frozen — withdraw at settlement (principal is never withheld)\")\n\t}",
   "replace": ""
  },
  {
@@ -4695,8 +4695,8 @@
   "pkg": "kourtv3",
   "file": "court.gno",
   "label": "StartCourt: the court admins itself",
-  "find": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0)",
-  "replace": "\treturn startCourtUser(cur.Address(), cur.Address(), slug, name, 0)"
+  "find": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0, false)",
+  "replace": "\treturn startCourtUser(cur.Address(), cur.Address(), slug, name, 0, false)"
  },
  {
   "pkg": "kourtv3",
@@ -4730,7 +4730,7 @@
   "pkg": "kourtv3",
   "file": "court.gno",
   "label": "PARAM minAnswerX halved (1 CC -> 0.5 CC, off its dust arm)",
-  "find": "\t\tminAnswerX:           1_000_000, // 1 CC \u2014 a DUST arm; the fraction carries policy",
+  "find": "\t\tminAnswerX:           1_000_000, // 1 CC — a DUST arm; the fraction carries policy",
   "replace": "\t\tminAnswerX:           500_000,"
  },
  {
@@ -4890,7 +4890,7 @@
  {
   "pkg": "kourtv3",
   "file": "meta.gno",
-  "label": "v0.55: setmods is a cheaper `unsuspend` \u2014 the global term is dropped",
+  "label": "v0.55: setmods is a cheaper `unsuspend` — the global term is dropped",
   "find": "\t\tif cm.suspended && cm.suspendActByGlobal > cs.openedAt {\n\t\t\tpanic(\"kourtv3: the global DAO changed this court's suspension under this appeal; re-appeal\")\n\t\t}\n",
   "replace": ""
  },
@@ -5878,8 +5878,8 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "claimTitleFor: a tombstone code is rendered unsanitised",
-  "find": "\t\t\t\treturn \"[removed \u00b7 \" + sanitize.InlineText(clm.tombstone) + \"]\"",
-  "replace": "\t\t\t\treturn \"[removed \u00b7 \" + clm.tombstone + \"]\""
+  "find": "\t\t\t\treturn \"[removed · \" + sanitize.InlineText(clm.tombstone) + \"]\"",
+  "replace": "\t\t\t\treturn \"[removed · \" + clm.tombstone + \"]\""
  },
  {
   "pkg": "kourtv3",
@@ -5906,8 +5906,8 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "courtNameFor: a purged court's tombstone is rendered unsanitised",
-  "find": "\t\treturn \"[removed \u00b7 \" + sanitize.InlineText(c.mod.courtTombstone) + \"]\"",
-  "replace": "\t\treturn \"[removed \u00b7 \" + c.mod.courtTombstone + \"]\""
+  "find": "\t\treturn \"[removed · \" + sanitize.InlineText(c.mod.courtTombstone) + \"]\"",
+  "replace": "\t\treturn \"[removed · \" + c.mod.courtTombstone + \"]\""
  },
  {
   "pkg": "kourtv3",
@@ -7338,7 +7338,7 @@
   "label": "open the rewards: the answer bond is paid out but the field still claims it",
   "find": "\tc.coin.Transfer(c.escrow, cs.answerer, cs.answerBond)\n\tcs.answerBond = 0",
   "replace": "\tc.coin.Transfer(c.escrow, cs.answerer, cs.answerBond)",
-  "why": "The claim's LAST escrow disposal, and the corpus had nothing on it \u2014 the three openrewards.gno rows mentioning answerBond are all about AnswererBonus's tier bound. Both halves are now caught by TestTheEscrowHoldsExactlyWhatItOwes, which reconciles the escrow's balance against every obligation recorded against it; the two mutations break it in opposite directions and the failure prints both sides. Here the coin leaves and the field stays: the escrow holds 0 and owes 18000000."
+  "why": "The claim's LAST escrow disposal, and the corpus had nothing on it — the three openrewards.gno rows mentioning answerBond are all about AnswererBonus's tier bound. Both halves are now caught by TestTheEscrowHoldsExactlyWhatItOwes, which reconciles the escrow's balance against every obligation recorded against it; the two mutations break it in opposite directions and the failure prints both sides. Here the coin leaves and the field stays: the escrow holds 0 and owes 18000000."
  },
  {
   "pkg": "kourtv3",
@@ -7346,7 +7346,7 @@
   "label": "open the rewards: the answer-bond field is cleared but the coin never moves",
   "find": "\tc.coin.Transfer(c.escrow, cs.answerer, cs.answerBond)\n\tcs.answerBond = 0",
   "replace": "\tcs.answerBond = 0",
-  "why": "The claim's LAST escrow disposal, and the corpus had nothing on it \u2014 the three openrewards.gno rows mentioning answerBond are all about AnswererBonus's tier bound. Both halves are now caught by TestTheEscrowHoldsExactlyWhatItOwes, which reconciles the escrow's balance against every obligation recorded against it; the two mutations break it in opposite directions and the failure prints both sides. Here the field is cleared and the coin stays: the escrow holds 18000000 and owes 0."
+  "why": "The claim's LAST escrow disposal, and the corpus had nothing on it — the three openrewards.gno rows mentioning answerBond are all about AnswererBonus's tier bound. Both halves are now caught by TestTheEscrowHoldsExactlyWhatItOwes, which reconciles the escrow's balance against every obligation recorded against it; the two mutations break it in opposite directions and the failure prints both sides. Here the field is cleared and the coin stays: the escrow holds 18000000 and owes 0."
  },
  {
   "pkg": "kourtv3",
@@ -7354,7 +7354,7 @@
   "label": "lockedOf: a pre-lock court reads every balance as fully staked",
   "find": "\tif c.locked == nil { // pre-lock court, or a fixture that built one by hand",
   "replace": "\tif c.locked != nil { // pre-lock court, or a fixture that built one by hand",
-  "why": "lockedOf's own header calls itself \"the ONLY reader of the tree: a second one is a second place for the nil-tree and missing-key branches to disagree with the write path\" \u2014 and neither branch had a row. This is the nil-tree one."
+  "why": "lockedOf's own header calls itself \"the ONLY reader of the tree: a second one is a second place for the nil-tree and missing-key branches to disagree with the write path\" — and neither branch had a row. This is the nil-tree one."
  },
  {
   "pkg": "kourtv3",
@@ -7386,7 +7386,7 @@
   "label": "releaseStake: an exact release leaves a zero row instead of removing it",
   "find": "\tif amount == l {",
   "replace": "\tif amount != l {",
-  "why": "The `amount > l` panic above has two rows; the equality below it had none. Inverted, a PARTIAL release removes the whole lock \u2014 freeing more CC than was released \u2014 and an exact one leaves a zero row behind. Note `== l` to `>= l` would be INVALID rather than a survivor: the panic on `amount > l` above makes the two identical."
+  "why": "The `amount > l` panic above has two rows; the equality below it had none. Inverted, a PARTIAL release removes the whole lock — freeing more CC than was released — and an exact one leaves a zero row behind. Note `== l` to `>= l` would be INVALID rather than a survivor: the panic on `amount > l` above makes the two identical."
  },
  {
   "pkg": "kourtv3",
@@ -7394,7 +7394,7 @@
   "label": "AppointMods: the creator-only gate is inverted, so anyone BUT the creator appoints",
   "find": "\tif cur.Previous().Address() != c.admin {",
   "replace": "\tif cur.Previous().Address() == c.admin {",
-  "why": "AppointMods carries three sequential authority guards and NONE of them had a row, on the highest-consequence surface in the realm. All three are tested; the corpus simply never recorded it, which keeps the coverage out of every regression pass. This is the caller-authentication one \u2014 inverted, the creator is the only address refused."
+  "why": "AppointMods carries three sequential authority guards and NONE of them had a row, on the highest-consequence surface in the realm. All three are tested; the corpus simply never recorded it, which keeps the coverage out of every regression pass. This is the caller-authentication one — inverted, the creator is the only address refused."
  },
  {
   "pkg": "kourtv3",
@@ -7410,7 +7410,7 @@
   "label": "AppointMods: a suspended creator re-appoints around the suspension",
   "find": "\tif c.mod != nil && c.mod.suspended {\n\t\tpanic(\"kourtv3: this moderator set is suspended; only an election or a meta verdict may reinstate it\")\n\t}\n",
   "replace": "",
-  "why": "The third guard, and its own comment states the attack it stops: AppointMods is creator-only and FREE, so a suspended creator who could re-appoint would self-unsuspend for zero cost, \"turning meta's bonded, voted disarm into a no-op\". Caught by TestSuspendedCreatorCannotReappoint \u2014 which is how this was confirmed, after grepping the panic message across the tests wrongly suggested nothing asserted it: the test pins the guard while asserting a shorter fragment of the message."
+  "why": "The third guard, and its own comment states the attack it stops: AppointMods is creator-only and FREE, so a suspended creator who could re-appoint would self-unsuspend for zero cost, \"turning meta's bonded, voted disarm into a no-op\". Caught by TestSuspendedCreatorCannotReappoint — which is how this was confirmed, after grepping the panic message across the tests wrongly suggested nothing asserted it: the test pins the guard while asserting a shorter fragment of the message."
  },
  {
   "pkg": "kourtv3",
@@ -7442,7 +7442,7 @@
   "label": "HiddenFromListing: a court WITH a moderator set always reads as visible",
   "find": "func HiddenFromListing(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod == nil {",
   "replace": "func HiddenFromListing(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod != nil {",
-  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique \u2014 `if c.mod == nil {` occurs seven times in this file."
+  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique — `if c.mod == nil {` occurs seven times in this file."
  },
  {
   "pkg": "kourtv3",
@@ -7450,7 +7450,7 @@
   "label": "TextRedacted: a court WITH a moderator set never redacts its text",
   "find": "func TextRedacted(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod == nil {",
   "replace": "func TextRedacted(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod != nil {",
-  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique \u2014 `if c.mod == nil {` occurs seven times in this file."
+  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique — `if c.mod == nil {` occurs seven times in this file."
  },
  {
   "pkg": "kourtv3",
@@ -7458,7 +7458,7 @@
   "label": "ClaimPurged: a court WITH a moderator set reads every claim as unpurged",
   "find": "func ClaimPurged(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod == nil {",
   "replace": "func ClaimPurged(courtSlug string, claimID uint64) bool {\n\tc := mustCourt(courtSlug)\n\tif c.mod != nil {",
-  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique \u2014 `if c.mod == nil {` occurs seven times in this file."
+  "why": "From the authority-shaped sweep of moderation.gno's uncovered operators. Anchored with 2 line(s) of context above to stay unique — `if c.mod == nil {` occurs seven times in this file."
  },
  {
   "pkg": "kourtv3",
@@ -7546,7 +7546,7 @@
   "label": "Name: a kind reports a fixed name, so one realm can only ever register one",
   "find": "func (g greeting) Name() string { return g.name }",
   "replace": "func (g greeting) Name() string { return \"greet/one\" }",
-  "why": "Name is the registry key. The catching test loops three names, so the first iteration passes and the second fails \u2014 which is the point of looping."
+  "why": "Name is the registry key. The catching test loops three names, so the first iteration passes and the second fails — which is the point of looping."
  },
  {
   "pkg": "offerer",
@@ -7562,7 +7562,7 @@
   "label": "OfferNamed: offered with a grace of zero, so the entrypoint aborts every call",
   "find": "\t\t5000, // but a real expiry",
   "replace": "\t\t0, // but a real expiry",
-  "why": "The tuple this realm ACTUALLY shipped once \u2014 governor_test.gno's grace-of-zero test names it as the shape that was copied. Offer refuses it, so the failure is not a wrong number but a demo realm whose only entrypoint aborts while every suite stays green. Caught by the abort, not by the terms table."
+  "why": "The tuple this realm ACTUALLY shipped once — governor_test.gno's grace-of-zero test names it as the shape that was copied. Offer refuses it, so the failure is not a wrong number but a demo realm whose only entrypoint aborts while every suite stays green. Caught by the abort, not by the terms table."
  },
  {
   "pkg": "offerer",
@@ -7570,7 +7570,7 @@
   "label": "OfferNamed: offered on a quorum the realm does not document",
   "find": "\t\t2000, // a fifth of the supply",
   "replace": "\t\t3000, // a fifth of the supply",
-  "why": "The other catching mechanism: an offerable-but-undocumented tuple gets past Offer, so only reading the terms back through KindRules finds it. Pairs with the grace row \u2014 one row per mechanism."
+  "why": "The other catching mechanism: an offerable-but-undocumented tuple gets past Offer, so only reading the terms back through KindRules finds it. Pairs with the grace row — one row per mechanism."
  },
  {
   "pkg": "ccwrap",
@@ -7578,7 +7578,7 @@
   "label": "Render: the sanitiser is applied to the symbol instead of the court name",
   "find": "sanitize.InlineText(w.tok.GetName()), w.tok.GetSymbol(),",
   "replace": "w.tok.GetName(), sanitize.InlineText(w.tok.GetSymbol()),",
-  "why": "NOT the obvious mutation, and the reason is worth keeping. Simply dropping the call removes the sanitize import's ONLY use, so the file stops compiling \u2014 and gno reports that as `0 build errors, 1 test errors`, which a harness scoring a failing suite as a catch would count as coverage it does not have. Moving the call to the symbol keeps the import used, compiles, and leaves the name raw. Measured: unescaped '<' at byte 10, TestACourtNameCannotWriteMarkupOntoTheWrapPage fails, the length test still passes."
+  "why": "NOT the obvious mutation, and the reason is worth keeping. Simply dropping the call removes the sanitize import's ONLY use, so the file stops compiling — and gno reports that as `0 build errors, 1 test errors`, which a harness scoring a failing suite as a catch would count as coverage it does not have. Moving the call to the symbol keeps the import used, compiles, and leaves the name raw. Measured: unescaped '<' at byte 10, TestACourtNameCannotWriteMarkupOntoTheWrapPage fails, the length test still passes."
  },
  {
   "pkg": "ccwrap",
@@ -7586,7 +7586,7 @@
   "label": "Enable: the wrapped-name bound is not enforced, so grc20 refuses three frames down",
   "find": "\tif len(name) > grc20.MaxNameLen {",
   "replace": "\tif len(name) > 1000 {",
-  "why": "A court name may be 100 characters and this realm prepends \"Wrapped \", where grc20's MaxNameLen is 64. Without the bound a long-named court aborts inside NewToken with \"invalid token name (empty, too long, or contains control chars)\" \u2014 naming neither courts nor names nor the fix \u2014 and a court name cannot be changed after StartCourt, so that is permanent for that court. Enable already does this arithmetic for the slug and says why in its own comment."
+  "why": "A court name may be 100 characters and this realm prepends \"Wrapped \", where grc20's MaxNameLen is 64. Without the bound a long-named court aborts inside NewToken with \"invalid token name (empty, too long, or contains control chars)\" — naming neither courts nor names nor the fix — and a court name cannot be changed after StartCourt, so that is permanent for that court. Enable already does this arithmetic for the slug and says why in its own comment."
  },
  {
   "pkg": "kourtv3",
@@ -7594,7 +7594,7 @@
   "label": "AppointMods: the threshold is checked against the raw list, so a duplicate installs an unreachable set",
   "find": "\tif m < 1 || m > len(canon) {",
   "replace": "\tif m < 1 || m > len(mods) {",
-  "why": "moderation.gno states the rule AND the bug it closed: checking m against the raw list let {A,A,B} with m=3 install n=2/m=3, a set no action can ever act for \u2014 including UnhideItem, so a standing hide became locally permanent, and the set cannot repair itself. Measured UNCAUGHT before the fixture existed: the four tests that assert the 1..n bound all pass DISTINCT members, where len(mods) equals len(canon) and the two expressions are the same program."
+  "why": "moderation.gno states the rule AND the bug it closed: checking m against the raw list let {A,A,B} with m=3 install n=2/m=3, a set no action can ever act for — including UnhideItem, so a standing hide became locally permanent, and the set cannot repair itself. Measured UNCAUGHT before the fixture existed: the four tests that assert the 1..n bound all pass DISTINCT members, where len(mods) equals len(canon) and the two expressions are the same program."
  },
  {
   "pkg": "kourtv3",
@@ -7608,17 +7608,17 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "renderModLog: the purge code reaches the page unsanitised",
-  "find": "sanitize.InlineText(a.code) + \" \u00b7 by \"",
-  "replace": "a.code + \" \u00b7 by \"",
-  "why": "modAct's doc claimed code was \"an enum, never user text\" and that was false for three of the eleven acts that write a row: global-hide, purge and purgerow each concatenate a caller-supplied statutory code, and mustCategoryCode validates LENGTH ONLY. Measured uncaught before the fixture existed \u2014 dropping this call left the whole kourtv3 suite green. The actor is a global DAO member, so the door is narrow, but purge is the LEGAL-HOLD act and its tombstone would have been a place to put removed text back."
+  "find": "sanitize.InlineText(a.code) + \" · by \"",
+  "replace": "a.code + \" · by \"",
+  "why": "modAct's doc claimed code was \"an enum, never user text\" and that was false for three of the eleven acts that write a row: global-hide, purge and purgerow each concatenate a caller-supplied statutory code, and mustCategoryCode validates LENGTH ONLY. Measured uncaught before the fixture existed — dropping this call left the whole kourtv3 suite green. The actor is a global DAO member, so the door is narrow, but purge is the LEGAL-HOLD act and its tombstone would have been a place to put removed text back."
  },
  {
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "renderModLog: a moderation reason reaches the page unsanitised",
-  "find": "line += \" \u2014 \" + sanitize.InlineText(a.reason)",
-  "replace": "line += \" \u2014 \" + a.reason",
-  "why": "The sibling of the purge-code row, and the more important half: a code could in principle be narrowed to an alphabet, but a reason is prose by design and checkReason bounds it by LENGTH ONLY, so escaping at render is the only defence it will ever have. Measured uncaught before the fixture existed \u2014 dropping this call left the whole kourtv3 suite green. modtext_test's forge fixtures reach the claim body, the court desc and the tombstone code, never a reason and never this page."
+  "find": "line += \" — \" + sanitize.InlineText(a.reason)",
+  "replace": "line += \" — \" + a.reason",
+  "why": "The sibling of the purge-code row, and the more important half: a code could in principle be narrowed to an alphabet, but a reason is prose by design and checkReason bounds it by LENGTH ONLY, so escaping at render is the only defence it will ever have. Measured uncaught before the fixture existed — dropping this call left the whole kourtv3 suite green. modtext_test's forge fixtures reach the claim body, the court desc and the tombstone code, never a reason and never this page."
  },
  {
   "pkg": "kourtv3",
@@ -7626,7 +7626,7 @@
   "label": "the escrow clock reads provisional FRESH, so it is never set at the first resolution",
   "find": "\tif firstResolution && !cs.provClose {",
   "replace": "\tif cs.provisional < 0 && !cs.provClose {",
-  "why": "dispute.gno captures firstResolution with \"capture BEFORE the switch mutates it\", and the block this guards sets the escrow clock \u2014 \"set ONCE, at the first resolution, and never recomputed\". By here the first-resolution branch has already written provisional = answer, so a FRESH read is false where the capture was true and the clock is never set. Measured caught by the realm panic \"the escrow window has passed; Finalize the verdict\", with 0 build errors. NOTE the sibling use site inside the switch is NOT writable: there the write is inside the block the condition guards, so a fresh read is the same program and the row would be INVALID."
+  "why": "dispute.gno captures firstResolution with \"capture BEFORE the switch mutates it\", and the block this guards sets the escrow clock — \"set ONCE, at the first resolution, and never recomputed\". By here the first-resolution branch has already written provisional = answer, so a FRESH read is false where the capture was true and the clock is never set. Measured caught by the realm panic \"the escrow window has passed; Finalize the verdict\", with 0 build errors. NOTE the sibling use site inside the switch is NOT writable: there the write is inside the block the condition guards, so a fresh read is the same program and the row would be INVALID."
  },
  {
   "pkg": "kourtv3",
@@ -7654,15 +7654,15 @@
   "pkg": "kourtv3",
   "file": "court.gno",
   "label": "PARAM ordDepositFloorBps raised (an ordinary court's smallest deposit)",
-  "find": "\tordDepositFloorBps = int64(1)  // 0.01% \u2014 \u00a75.3's rule is meta-only; opening a",
-  "replace": "\tordDepositFloorBps = int64(5)  // 0.01% \u2014 \u00a75.3's rule is meta-only; opening a"
+  "find": "\tordDepositFloorBps = int64(1)  // 0.01% — §5.3's rule is meta-only; opening a",
+  "replace": "\tordDepositFloorBps = int64(5)  // 0.01% — §5.3's rule is meta-only; opening a"
  },
  {
   "pkg": "kourtv3",
   "file": "court.gno",
   "label": "PARAM StartCourt opens a polish window instead of none",
-  "find": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0)",
-  "replace": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 1_000)"
+  "find": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0, false)",
+  "replace": "\treturn startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 1_000, false)"
  },
  {
   "pkg": "kourtv3",
@@ -7670,7 +7670,7 @@
   "label": "AddAssociation: a claim's own author is charged the association bond too",
   "find": "\tif f.author != who && !isActiveMod(ensureMod(c), who) {",
   "replace": "\t_ = f\n\tif !isActiveMod(ensureMod(c), who) {",
-  "why": "Nobody accountable pays: the asserting claim's author already has a deposited claim behind their name. Caught by TestAnAuthorAndAModeratorPayNoAssociationBond, which asserts on the BALANCE rather than on the absence of a panic \u2014 \"it did not refuse me\" would also pass if the bond were zero."
+  "why": "Nobody accountable pays: the asserting claim's author already has a deposited claim behind their name. Caught by TestAnAuthorAndAModeratorPayNoAssociationBond, which asserts on the BALANCE rather than on the absence of a panic — \"it did not refuse me\" would also pass if the bond were zero."
  },
  {
   "pkg": "kourtv3",
@@ -7702,7 +7702,7 @@
   "label": "AddAssociation: the edge records no bond, so nothing can ever be returned or burned",
   "find": "\te := &assocEdge{stance: st, author: who, at: heightNow(), bond: bond}",
   "replace": "\te := &assocEdge{stance: st, author: who, at: heightNow()}",
-  "why": "`bond > 0` IS the pending state \u2014 drop the field and the money is in the escrow with nothing recording whose it was. Caught by TestDisapproving..., which finds no bond to burn."
+  "why": "`bond > 0` IS the pending state — drop the field and the money is in the escrow with nothing recording whose it was. Caught by TestDisapproving..., which finds no bond to burn."
  },
  {
   "pkg": "kourtv3",
@@ -7758,7 +7758,7 @@
   "label": "burnAssocBond: the bond is refunded to the griefer instead of burned",
   "find": "\tamt := e.bond\n\te.bond = 0\n\tc.coin.Burn(c.escrow, amt)\n}",
   "replace": "\tamt := e.bond\n\te.bond = 0\n\tc.coin.Transfer(c.escrow, e.author, amt)\n}",
-  "why": "The burn is the only thing a disapproval costs a griefer; a refund makes it indistinguishable from RemoveAssociation. ONE ROW FOR THREE CALLERS now that the money half is factored out \u2014 the single disapprove, the bulk burn, and a moderator's removal all route here. Caught by the TotalSupply assertion in TestDisapprovingAnAssociationBurnsTheBondAndDropsTheEdge, which is why that test asserts on supply and not on the escrow: a refund empties the escrow too."
+  "why": "The burn is the only thing a disapproval costs a griefer; a refund makes it indistinguishable from RemoveAssociation. ONE ROW FOR THREE CALLERS now that the money half is factored out — the single disapprove, the bulk burn, and a moderator's removal all route here. Caught by the TotalSupply assertion in TestDisapprovingAnAssociationBurnsTheBondAndDropsTheEdge, which is why that test asserts on supply and not on the escrow: a refund empties the escrow too."
  },
  {
   "pkg": "kourtv3",
@@ -7766,7 +7766,7 @@
   "label": "DisapproveAssociation: the bond is burned but the edge survives",
   "find": "\t\tpanic(\"kourtv3: no bond is held on that edge; remove it instead\")\n\t}\n\tburnAssocBond(c, e)\n\tdropAssocEdge(c, from, to)",
   "replace": "\t\tpanic(\"kourtv3: no bond is held on that edge; remove it instead\")\n\t}\n\tburnAssocBond(c, e)",
-  "why": "Half the verb: the junk stays on the page and the poster is out the money. Anchored through the panic line above because the bulk burn spells the same two calls \u2014 which is the ambiguity that made burnAssocBond one function. Caught by the ClaimAssociations assertion after the burn."
+  "why": "Half the verb: the junk stays on the page and the poster is out the money. Anchored through the panic line above because the bulk burn spells the same two calls — which is the ambiguity that made burnAssocBond one function. Caught by the ClaimAssociations assertion after the burn."
  },
  {
   "pkg": "kourtv3",
@@ -7790,7 +7790,7 @@
   "label": "releaseAssocBond: the bond is not zeroed, so a refund can be drawn twice",
   "find": "\tamt := e.bond\n\te.bond = 0\n\tc.coin.Transfer(c.escrow, e.author, amt)",
   "replace": "\tamt := e.bond\n\tc.coin.Transfer(c.escrow, e.author, amt)",
-  "why": "Zeroing is what makes `bond > 0` the pending state with no second flag to disagree with it \u2014 unzeroed, the escrow pays out until it is empty. Caught by the draw-twice arm of the same test."
+  "why": "Zeroing is what makes `bond > 0` the pending state with no second flag to disagree with it — unzeroed, the escrow pays out until it is empty. Caught by the draw-twice arm of the same test."
  },
  {
   "pkg": "kourtv3",
@@ -7870,7 +7870,7 @@
   "label": "ApproveAllAssociations: only the inbound half is swept, so outbound bonds are stranded",
   "find": "\tfor _, to := range outs {\n\t\treleaseAssocBond(c, mustAssocEdge(c, claimID, to))\n\t\tn++\n\t}",
   "replace": "\tfor _, to := range outs {\n\t\t_ = to\n\t}",
-  "why": "Both caps are griefing vectors: AddAssociation's `from` is any claim in the court, so a stranger fills a claim's 32 outbound slots as readily as its 64 inbound ones. Caught by TestApprovingAllAssociationsSettlesBothDirectionsAtOnce, which is shaped around exactly this \u2014 one bonded edge in each direction."
+  "why": "Both caps are griefing vectors: AddAssociation's `from` is any claim in the court, so a stranger fills a claim's 32 outbound slots as readily as its 64 inbound ones. Caught by TestApprovingAllAssociationsSettlesBothDirectionsAtOnce, which is shaped around exactly this — one bonded edge in each direction."
  },
  {
   "pkg": "kourtv3",
@@ -7894,7 +7894,7 @@
   "label": "DisapproveAllAssociations: the burn takes bonds posted after the vote opened",
   "find": "\tif e.bond <= 0 || e.at > opened {\n\t\treturn 0\n\t}",
   "replace": "\tif e.bond <= 0 {\n\t\treturn 0\n\t}",
-  "why": "A bond posted between the first signature and the m-th has been judged by nobody, so taking it breaks \"unjudged means approved\" \u2014 the rule the whole refundable design rests on. Caught by the mid-vote edge in TestTheBulkBurnTakesTwoSignaturesAndSparesWhatArrivedMidVote."
+  "why": "A bond posted between the first signature and the m-th has been judged by nobody, so taking it breaks \"unjudged means approved\" — the rule the whole refundable design rests on. Caught by the mid-vote edge in TestTheBulkBurnTakesTwoSignaturesAndSparesWhatArrivedMidVote."
  },
  {
   "pkg": "kourtv3",
@@ -8747,7 +8747,7 @@
   "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "renderStanding: a slashed address is told the pass is forfeit",
-  "find": "\t\tif hw > score {\n\t\t\tb.WriteString(\"\\nA moderator slash took your standing to zero, and with it the\\n\" +\n\t\t\t\t\"entry pass if you held one \u2014 the burn is not refunded. A successor\\n\" +\n\t\t\t\t\"set, or the platform, can restore up to the high-water mark below.\\n\")\n\t\t}\n",
+  "find": "\t\tif hw > score {\n\t\t\tb.WriteString(\"\\nA moderator slash took your standing to zero, and with it the\\n\" +\n\t\t\t\t\"entry pass if you held one — the burn is not refunded. A successor\\n\" +\n\t\t\t\t\"set, or the platform, can restore up to the high-water mark below.\\n\")\n\t\t}\n",
   "replace": ""
  },
  {
@@ -8775,8 +8775,8 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "renderBoardIn: the two orderings link to each other",
-  "find": "\t\tb.WriteString(\" \u00b7 [Top](\" + base + \"/board/top) \u00b7 **Newest**\")",
-  "replace": "\t\tb.WriteString(\" \u00b7 **Newest**\")"
+  "find": "\t\tb.WriteString(\" · [Top](\" + base + \"/board/top) · **Newest**\")",
+  "replace": "\t\tb.WriteString(\" · **Newest**\")"
  },
  {
   "pkg": "kourtv3",
@@ -8824,7 +8824,7 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "renderBoardOne: a comment cites the block it landed in",
-  "find": "\t\t\" \u00b7 block \" + strconv.FormatInt(r.at, 10) + \"\\n\\n\")",
+  "find": "\t\t\" · block \" + strconv.FormatInt(r.at, 10) + \"\\n\\n\")",
   "replace": "\t\t\"\\n\\n\")"
  },
  {
@@ -9082,7 +9082,7 @@
  {
   "pkg": "kourtv3",
   "file": "posting.gno",
-  "label": "passPriceFor: the lid is the \u00a716 relation",
+  "label": "passPriceFor: the lid is the §16 relation",
   "find": "\tif lid := sup * ladderFor(c).t3Bps / 10_000 / passPriceOfT3; p > lid {\n\t\tp = lid\n\t}\n",
   "replace": ""
  },
@@ -9138,7 +9138,7 @@
  {
   "pkg": "kourtv3",
   "file": "posting.gno",
-  "label": "mustLadder: the \u00a716 floor on t3",
+  "label": "mustLadder: the §16 floor on t3",
   "find": "\tif l.t3Bps < passPriceOfT3*passPriceBps {\n",
   "replace": "\tif false {\n"
  },
@@ -9174,15 +9174,15 @@
   "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "BuyCommentPass: the unsealed refusal names the real reason",
-  "find": "\t\tif _, sealed := boardSupply(c); !sealed {\n\t\t\tpanic(\"kourtv3: this court has not completed a sealed epoch yet; its board is not open\")\n\t\t}\n\t\tpanic(\"kourtv3: this court cannot price a pass yet \u2014 it has no supply\")",
-  "replace": "\t\tpanic(\"kourtv3: this court cannot price a pass yet \u2014 it has no supply\")"
+  "find": "\t\tif _, sealed := boardSupply(c); !sealed {\n\t\t\tpanic(\"kourtv3: this court has not completed a sealed epoch yet; its board is not open\")\n\t\t}\n\t\tpanic(\"kourtv3: this court cannot price a pass yet — it has no supply\")",
+  "replace": "\t\tpanic(\"kourtv3: this court cannot price a pass yet — it has no supply\")"
  },
  {
   "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "mustSpendPost: the unsealed refusal does not advise an impossible purchase",
-  "find": "\t\tif _, sealed := boardSupply(c); !sealed {\n\t\t\tpanic(\"kourtv3: this court has not completed a sealed epoch yet; its board is not open\")\n\t\t}\n\t\tpanic(\"kourtv3: you cannot post in this court yet \u2014 earn standing, or buy an entry pass\")",
-  "replace": "\t\tpanic(\"kourtv3: you cannot post in this court yet \u2014 earn standing, or buy an entry pass\")"
+  "find": "\t\tif _, sealed := boardSupply(c); !sealed {\n\t\t\tpanic(\"kourtv3: this court has not completed a sealed epoch yet; its board is not open\")\n\t\t}\n\t\tpanic(\"kourtv3: you cannot post in this court yet — earn standing, or buy an entry pass\")",
+  "replace": "\t\tpanic(\"kourtv3: you cannot post in this court yet — earn standing, or buy an entry pass\")"
  },
  {
   "pkg": "kourtv3",
@@ -9657,7 +9657,7 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "renderBoardIn: the ranked page says when nothing else is upvoted",
-  "find": "\t\tif shown == 0 {\n\t\t\tb.WriteString(\"_Nothing else upvoted yet \u2014 [Newest](\" + base +\n\t\t\t\t\"/board) is the fuller view._\\n\")\n\t\t}\n",
+  "find": "\t\tif shown == 0 {\n\t\t\tb.WriteString(\"_Nothing else upvoted yet — [Newest](\" + base +\n\t\t\t\t\"/board) is the fuller view._\\n\")\n\t\t}\n",
   "replace": ""
  },
  {
@@ -9671,8 +9671,8 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "renderModLog: the suspension line does not promise a masking",
-  "find": "\t\t\tb.WriteString(\"- **suspended** \u2014 they cannot take new moderation acts. \" +\n\t\t\t\t\"The hides and freezes already in place stand until cleared, and \" +\n\t\t\t\t\"any member may still lift their own\\n\")\n",
-  "replace": "\t\t\tb.WriteString(\"- **suspended** \u2014 their hides are masked and they cannot act\\n\")\n"
+  "find": "\t\t\tb.WriteString(\"- **suspended** — they cannot take new moderation acts. \" +\n\t\t\t\t\"The hides and freezes already in place stand until cleared, and \" +\n\t\t\t\t\"any member may still lift their own\\n\")\n",
+  "replace": "\t\t\tb.WriteString(\"- **suspended** — their hides are masked and they cannot act\\n\")\n"
  },
  {
   "pkg": "kourtv3",
@@ -9727,7 +9727,7 @@
   "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "renderStanding: the page says the bar is a share of supply, not a fixed number",
-  "find": "\tb.WriteString(\"\\nEach rung is a **share of this court's supply**, not a fixed \" +\n\t\t\"number, so the bar rises as the court grows. Standing itself is never \" +\n\t\t\"taken except by a logged moderator slash \u2014 but a score that does not \" +\n\t\t\"move can still fall below a rung it used to clear.\\n\")\n\n",
+  "find": "\tb.WriteString(\"\\nEach rung is a **share of this court's supply**, not a fixed \" +\n\t\t\"number, so the bar rises as the court grows. Standing itself is never \" +\n\t\t\"taken except by a logged moderator slash — but a score that does not \" +\n\t\t\"move can still fall below a rung it used to clear.\\n\")\n\n",
   "replace": ""
  },
  {
@@ -9740,14 +9740,14 @@
  {
   "pkg": "kourtv3",
   "file": "boardlegal.gno",
-  "label": "GlobalHideRow: no boardOpen gate \u2014 a notice outlives the claim",
+  "label": "GlobalHideRow: no boardOpen gate — a notice outlives the claim",
   "find": "\tcheckReason(categoryCode)\n\tc := mustCourt(courtSlug)\n\tcs := mustClaim(c, claimID)",
   "replace": "\tcheckReason(categoryCode)\n\tc := mustCourt(courtSlug)\n\tcs := mustClaim(c, claimID)\n\tif !boardOpen(cs) {\n\t\tpanic(\"kourtv3: settled\")\n\t}"
  },
  {
   "pkg": "kourtv3",
   "file": "boardlegal.gno",
-  "label": "PurgeBoardRange: no boardOpen gate \u2014 an order outlives the claim",
+  "label": "PurgeBoardRange: no boardOpen gate — an order outlives the claim",
   "find": "\tcs := mustClaim(c, claimID)\n\tcm := ensureMod(c)",
   "replace": "\tcs := mustClaim(c, claimID)\n\tif !boardOpen(cs) {\n\t\tpanic(\"kourtv3: settled\")\n\t}\n\tcm := ensureMod(c)"
  },
@@ -9986,7 +9986,7 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "v0.58 help: the board stops linking to help",
-  "find": "\"/me) \u00b7 \" +\n\t\thelpLink + \"\\n\\n\")",
+  "find": "\"/me) · \" +\n\t\thelpLink + \"\\n\\n\")",
   "replace": "\"/me)\\n\\n\")"
  },
  {
@@ -10007,15 +10007,15 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 help: the price gloss goes",
-  "find": "\" ugnot per coin \u2014 buying burns the GNOT, there is no sell side, \" +\n\t\t\"and the price only rises\\n\"",
+  "find": "\" ugnot per coin — the next coin's price, and it only rises\\n\"",
   "replace": "\" ugnot per coin\\n\""
  },
  {
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 help: the reservoir gloss goes",
-  "find": "\" waiting to be earned \u00b7 \"",
-  "replace": "\" \u00b7 \""
+  "find": "\" waiting to be earned · \"",
+  "replace": "\" · \""
  },
  {
   "pkg": "kourtv3",
@@ -10148,7 +10148,7 @@
   "file": "render.gno",
   "label": "v0.58 path hints: the claim page elides the positions path again",
   "find": "\"the end of this page's path:_ `/r/kourt/kourtv3:\" + sanitize.InlineText(slug) +\n\t\t\"/\" + strconv.FormatUint(id, 10) + \"/<your address>`\\n\\n\"",
-  "replace": "\"the end of this page's path:_ `\u2026/\" + strconv.FormatUint(id, 10) + \"/<your address>`\\n\\n\""
+  "replace": "\"the end of this page's path:_ `…/\" + strconv.FormatUint(id, 10) + \"/<your address>`\\n\\n\""
  },
  {
   "pkg": "kourtv3",
@@ -10161,7 +10161,7 @@
   "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "v0.58 path hints: bps goes undefined on the page that quotes it",
-  "find": "\tb.WriteString(\"Standing is measured against this court's coin supply, in \" +\n\t\t\"basis points \u2014 one bp is a hundredth of a percent.\\n\\n\")",
+  "find": "\tb.WriteString(\"Standing is measured against this court's coin supply, in \" +\n\t\t\"basis points — one bp is a hundredth of a percent.\\n\\n\")",
   "replace": ""
  },
  {
@@ -10238,8 +10238,8 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "v0.58 ux: a shared comment links only the board, not the claim",
-  "find": "\tb.WriteString(\"[\u2190 the claim](\" + base + \") \u00b7 [all \" +\n\t\tstrconv.Itoa(cs.board.Size()) + \" comments](\" + base + \"/board)\\n\\n\")",
-  "replace": "\tb.WriteString(\"[\u2190 the board](\" + base + \"/board)\\n\\n\")"
+  "find": "\tb.WriteString(\"[← the claim](\" + base + \") · [all \" +\n\t\tstrconv.Itoa(cs.board.Size()) + \" comments](\" + base + \"/board)\\n\\n\")",
+  "replace": "\tb.WriteString(\"[← the board](\" + base + \"/board)\\n\\n\")"
  },
  {
   "pkg": "kourtv3",
@@ -10252,7 +10252,7 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "v0.58 ux: the mod log stops saying where curation is",
-  "find": "\tb.WriteString(\"Curation \u2014 which claims a moderator filed under which heading \u2014 is \" +\n\t\t\"not in this list. The tree it produced is on the [court page](/r/kourt/kourtv3:\" + sanitize.InlineText(slug) + \"); the acts themselves are in \" +\n\t\t\"the chain's event stream.\\n\\n\")",
+  "find": "\tb.WriteString(\"Curation — which claims a moderator filed under which heading — is \" +\n\t\t\"not in this list. The tree it produced is on the [court page](/r/kourt/kourtv3:\" + sanitize.InlineText(slug) + \"); the acts themselves are in \" +\n\t\t\"the chain's event stream.\\n\\n\")",
   "replace": ""
  },
  {
@@ -10328,8 +10328,8 @@
  {
   "pkg": "kourtv3",
   "file": "help.gno",
-  "label": "v0.58 help: help drops the one-way purchase",
-  "find": "\tb.WriteString(\"- **Buying a court's coin** burns GNOT one way. There is no sell \" +\n\t\t\"side and no redemption; the price only rises as more is bought.\\n\\n\")",
+  "label": "v0.58 help: help drops what a payment becomes",
+  "find": "\tb.WriteString(\"- **Receiving a court's coin** takes GNOT on a rising curve. A \" +\n\t\t\"share of it (\" + pct(burnBps, bpsDenom) + \" today, set by the \" +\n\t\t\"platform's governing court within fixed bounds) is burned for good; the \" +\n\t\t\"rest is held by the court and paid back pro-rata to anyone who returns \" +\n\t\t\"coin — less than they put in, right after they put it in, and never more \" +\n\t\t\"than the next coin's price. A one-way court burns all of it. The price \" +\n\t\t\"only rises as more is minted.\\n\\n\")",
   "replace": ""
  },
  {
@@ -10357,8 +10357,8 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 units: claim: the reward pools revert to a generic CC",
-  "find": "\t\t\tb.WriteString(\"- rewards open \u2014 pools (\" + qualifiedSymbol(c) +\n\t\t\t\t\"): accuracy \" + strconv.FormatInt(w, 10) +",
-  "replace": "\t\t\tb.WriteString(\"- rewards open \u2014 pools (CC units): accuracy \" + strconv.FormatInt(w, 10) +"
+  "find": "\t\t\tb.WriteString(\"- rewards open — pools (\" + qualifiedSymbol(c) +\n\t\t\t\t\"): accuracy \" + strconv.FormatInt(w, 10) +",
+  "replace": "\t\t\tb.WriteString(\"- rewards open — pools (CC units): accuracy \" + strconv.FormatInt(w, 10) +"
  },
  {
   "pkg": "kourtv3",
@@ -10455,7 +10455,7 @@
   "pkg": "kourtv3",
   "file": "electionrender.gno",
   "label": "v0.58 ballot: ballot: retain is not on the ballot",
-  "find": "\tb.WriteString(\"- **keep the current moderators** \u2014 \" +\n\t\tstrconv.FormatInt(e.retainW, 10) + \" \" + qualifiedSymbol(c) + \" approving\\n\\n\")",
+  "find": "\tb.WriteString(\"- **keep the current moderators** — \" +\n\t\tstrconv.FormatInt(e.retainW, 10) + \" \" + qualifiedSymbol(c) + \" approving\\n\\n\")",
   "replace": ""
  },
  {
@@ -10469,7 +10469,7 @@
   "pkg": "kourtv3",
   "file": "electionrender.gno",
   "label": "v0.58 ballot: HAZARD: falling short is presented as a draw",
-  "find": "\tb.WriteString(\"> **Falling short is not a draw.** If the ballot closes with less \" +\n\t\t\"than the bar cast, nothing is installed and the current moderators keep \" +\n\t\t\"their seats \u2014 the same outcome as a vote to retain them.\\n>\\n\" +",
+  "find": "\tb.WriteString(\"> **Falling short is not a draw.** If the ballot closes with less \" +\n\t\t\"than the bar cast, nothing is installed and the current moderators keep \" +\n\t\t\"their seats — the same outcome as a vote to retain them.\\n>\\n\" +",
   "replace": "\tb.WriteString(\"> If the ballot closes with less than the bar cast, nothing is installed.\\n>\\n\" +"
  },
  {
@@ -10497,7 +10497,7 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "v0.58 appeal: the verb is shown as a bare code again",
-  "find": "\tb.WriteString(\"- action: **\" + sanitize.InlineText(verb) + \"** \u2014 \" +\n\t\tappealVerbGloss(verb) + \"\\n\")",
+  "find": "\tb.WriteString(\"- action: **\" + sanitize.InlineText(verb) + \"** — \" +\n\t\tappealVerbGloss(verb) + \"\\n\")",
   "replace": "\tb.WriteString(\"- action: **\" + sanitize.InlineText(verb) + \"**\\n\")"
  },
  {
@@ -10518,7 +10518,7 @@
   "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "v0.58 appeal: setmods and suspend share a description",
-  "find": "\tcase verbSuspend:\n\t\treturn \"disarms a court's moderator set \u2014 they can take no further act\"",
+  "find": "\tcase verbSuspend:\n\t\treturn \"disarms a court's moderator set — they can take no further act\"",
   "replace": "\tcase verbSuspend:\n\t\treturn \"installs a moderator set on that court, replacing whoever holds \" +\n\t\t\t\"the seats now\""
  },
  {
@@ -10546,7 +10546,7 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 record: the answerer's record loses its meaning",
-  "find": "\t\tb.WriteString(\"- the answerer has been challenged and upheld \" +\n\t\t\tstrconv.FormatInt(int64(AnswerRecord(slug, cs.answerer)), 10) +\n\t\t\t\" time(s) in this court \u2014 answers nobody contested do not count\\n\")",
+  "find": "\t\tb.WriteString(\"- the answerer has been challenged and upheld \" +\n\t\t\tstrconv.FormatInt(int64(AnswerRecord(slug, cs.answerer)), 10) +\n\t\t\t\" time(s) in this court — answers nobody contested do not count\\n\")",
   "replace": "\t\tb.WriteString(\"- answerer's difficulty record (this court): \" +\n\t\t\tstrconv.FormatInt(int64(AnswerRecord(slug, cs.answerer)), 10) + \"\\n\")"
  },
  {
@@ -10574,35 +10574,35 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 dispute: the outcome goes unsaid, only the price shows",
-  "find": "\t\t\tb.WriteString(\"  - win and the answerer's bond is burned and you are \" +\n\t\t\t\t\"compensated, up to twice your own bond; lose and yours burns \" +\n\t\t\t\t\"instead. Nothing passes between the two of you \u2014 a forfeit is \" +\n\t\t\t\t\"burned, a compensation is newly issued\\n\")",
+  "find": "\t\t\tb.WriteString(\"  - win and the answerer's bond is burned and you are \" +\n\t\t\t\t\"compensated, up to twice your own bond; lose and yours burns \" +\n\t\t\t\t\"instead. Nothing passes between the two of you — a forfeit is \" +\n\t\t\t\t\"burned, a compensation is newly issued\\n\")",
   "replace": ""
  },
  {
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 dispute: the burn/mint doctrine is dropped",
-  "find": "\"instead. Nothing passes between the two of you \u2014 a forfeit is \" +\n\t\t\t\t\"burned, a compensation is newly issued\\n\"",
+  "find": "\"instead. Nothing passes between the two of you — a forfeit is \" +\n\t\t\t\t\"burned, a compensation is newly issued\\n\"",
   "replace": "\"instead.\\n\""
  },
  {
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 dispute: the quorum-less half-burn goes unsaid",
-  "find": "\t\t\tb.WriteString(\"  - if the round draws no quorum, half your bond burns \" +\n\t\t\t\t\"and half returns; three such rounds close the claim undecided, \" +\n\t\t\t\t\"with every stake out at 1\u00d7 and the deposit and fee refunded\\n\")",
+  "find": "\t\t\tb.WriteString(\"  - if the round draws no quorum, half your bond burns \" +\n\t\t\t\t\"and half returns; three such rounds close the claim undecided, \" +\n\t\t\t\t\"with every stake out at 1× and the deposit and fee refunded\\n\")",
   "replace": ""
  },
  {
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 dispute: the stake-is-safe line goes",
-  "find": "\t\t\tb.WriteString(\"  - **your stake is not at risk either way** \u2014 only the \" +\n\t\t\t\t\"bond is\\n\")",
+  "find": "\t\t\tb.WriteString(\"  - **your stake is not at risk either way** — only the \" +\n\t\t\t\t\"bond is\\n\")",
   "replace": ""
  },
  {
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 dispute: the stake-is-safe line is softened to a maybe",
-  "find": "\"  - **your stake is not at risk either way** \u2014 only the \" +\n\t\t\t\t\"bond is\\n\"",
+  "find": "\"  - **your stake is not at risk either way** — only the \" +\n\t\t\t\t\"bond is\\n\"",
   "replace": "\"  - your stake is usually safe\\n\""
  },
  {
@@ -10623,7 +10623,7 @@
   "pkg": "kourtv3",
   "file": "help.gno",
   "label": "v0.58 help: the stake-is-safe reassurance goes",
-  "find": "\tb.WriteString(\"**Your stake is never at risk in either.** A bond is separate \" +\n\t\t\"money you choose to put up; the coin you staked on the claim still \" +\n\t\t\"comes back 1\u00d7, whatever the challenge decides.\\n\\n\")",
+  "find": "\tb.WriteString(\"**Your stake is never at risk in either.** A bond is separate \" +\n\t\t\"money you choose to put up; the coin you staked on the claim still \" +\n\t\t\"comes back 1×, whatever the challenge decides.\\n\\n\")",
   "replace": ""
  },
  {
@@ -10644,8 +10644,8 @@
   "pkg": "kourtv3",
   "file": "relrender.gno",
   "label": "v0.58 relations: the replacement is named but not linked",
-  "find": "\t\t\tb.WriteString(\">\\n> - [\" + claimTitleFor(c, cs) + \"](\" + base +\n\t\t\t\tstrconv.FormatUint(from, 10) + \") \u2014 \" + claimStatus(cs) + \"\\n\")",
-  "replace": "\t\t\tb.WriteString(\">\\n> - \" + claimTitleFor(c, cs) + \" \u2014 \" + claimStatus(cs) + \"\\n\")"
+  "find": "\t\t\tb.WriteString(\">\\n> - [\" + claimTitleFor(c, cs) + \"](\" + base +\n\t\t\t\tstrconv.FormatUint(from, 10) + \") — \" + claimStatus(cs) + \"\\n\")",
+  "replace": "\t\t\tb.WriteString(\">\\n> - \" + claimTitleFor(c, cs) + \" — \" + claimStatus(cs) + \"\\n\")"
  },
  {
   "pkg": "kourtv3",
@@ -10665,7 +10665,7 @@
   "pkg": "kourtv3",
   "file": "relrender.gno",
   "label": "v0.58 relations: the opinion disclaimer goes",
-  "find": "\tb.WriteString(\"_Anyone may draw these links, and the court does not rule on \" +\n\t\t\"them \u2014 they are what readers have asserted, not findings._\\n\\n\")",
+  "find": "\tb.WriteString(\"_Anyone may draw these links, and the court does not rule on \" +\n\t\t\"them — they are what readers have asserted, not findings._\\n\\n\")",
   "replace": ""
  },
  {
@@ -10700,8 +10700,8 @@
   "pkg": "kourtv3",
   "file": "render.gno",
   "label": "v0.58 answered: the status stops naming its side",
-  "find": "\t\treturn \"answered \" + sideName(int(cs.answer)) +\n\t\t\t\" \u2014 staking frozen; disputable until block \" +",
-  "replace": "\t\treturn \"answered\" +\n\t\t\t\" \u2014 staking frozen; disputable until block \" +"
+  "find": "\t\treturn \"answered \" + sideName(int(cs.answer)) +\n\t\t\t\" — staking frozen; disputable until block \" +",
+  "replace": "\t\treturn \"answered\" +\n\t\t\t\" — staking frozen; disputable until block \" +"
  },
  {
   "pkg": "kourtv3",
@@ -10873,8 +10873,8 @@
  },
  {
   "file": "media.gno",
-  "find": "\t\t\tcaption = \" \u2014 \" + sanitize.InlineText(m.caption)",
-  "replace": "\t\t\tcaption = \" \u2014 \" + sanitize.InlineText(\"\") + m.caption",
+  "find": "\t\t\tcaption = \" — \" + sanitize.InlineText(m.caption)",
+  "replace": "\t\t\tcaption = \" — \" + sanitize.InlineText(\"\") + m.caption",
   "label": "writeClaimMedia: a caption may break out of the alt text",
   "pkg": "kourtv3"
  },
@@ -10901,7 +10901,7 @@
  },
  {
   "file": "media.gno",
-  "find": "\tb.WriteString(\"_The court recorded a fingerprint of each image when the claim \" +\n\t\t\"was filed, so a swap can be detected \u2014 but not on this page._\" + verifyElsewhere() + \"\\n\\n\")",
+  "find": "\tb.WriteString(\"_The court recorded a fingerprint of each image when the claim \" +\n\t\t\"was filed, so a swap can be detected — but not on this page._\" + verifyElsewhere() + \"\\n\\n\")",
   "replace": "\tb.WriteString(verifyElsewhere() + \"\\n\\n\")",
   "label": "writeClaimMedia: the page shows evidence without saying it cannot check it",
   "pkg": "kourtv3"
@@ -11036,7 +11036,7 @@
   "pkg": "kourtv3",
   "file": "board.gno",
   "label": "renderBoardIn: the board offers no way to write on it",
-  "find": "\tb.WriteString(\"[Write a comment](\" + boardPostLink(slug, claimID, 0) + \") \u00b7 \" +",
+  "find": "\tb.WriteString(\"[Write a comment](\" + boardPostLink(slug, claimID, 0) + \") · \" +",
   "replace": "\tb.WriteString("
  },
  {
@@ -11115,5 +11115,145 @@
   "label": "Cost: the slope is d, not 2d, so every purchase is half price",
   "find": "\tm := uint64(2 * c.d)",
   "replace": "\tm := uint64(c.d)"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "buy.gno",
+  "label": "Buy: the reserve is not credited",
+  "find": "\tc.reserve = mustAdd(c.reserve, reserved)\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "buy.gno",
+  "label": "Buy: the reserve is credited with the envelope, not the cost",
+  "find": "\tburned, reserved := splitPayment(c, spent)",
+  "replace": "\tburned, reserved := splitPayment(c, sent)"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Buy: the whole cost is held, nothing burns",
+  "find": "\treserved = mulDiv128(spent, bpsDenom-burnBps, bpsDenom)\n\treturn spent - reserved, reserved",
+  "replace": "\treturn 0, spent"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Buy: the whole cost burns, nothing is held",
+  "find": "\treserved = mulDiv128(spent, bpsDenom-burnBps, bpsDenom)\n\treturn spent - reserved, reserved",
+  "replace": "\treturn spent, 0"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Buy: a one-way court holds a reserve",
+  "find": "\tif c.oneWay {\n\t\treturn spent, 0\n\t}\n\treserved =",
+  "replace": "\treserved ="
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "buy.gno",
+  "label": "Buy: rank and franchise are credited on the payment, not the burn share",
+  "find": "\treindexBurn(c, burned)\n\taccrueFranchise(c, buyer, burned)",
+  "replace": "\treindexBurn(c, spent)\n\taccrueFranchise(c, buyer, spent)"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "SetBurnBps: the bounds are dropped",
+  "find": "\tif bps < minBurnBps || bps > maxBurnBps {",
+  "replace": "\tif false {"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "SetBurnBps: anyone may set it",
+  "find": "\tif cur.Previous().Address() != d.admin {\n\t\tpanic(\"kourtv3: only the global DAO admin sets the burn share\")",
+  "replace": "\tif false && cur.Previous().Address() != d.admin {\n\t\tpanic(\"kourtv3: only the global DAO admin sets the burn share\")"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: mustSpendable dropped, so committed coin redeems",
+  "find": "\tmustSpendable(c, who, amount)\n\tpayout, supply := redeemQuote(c, amount)",
+  "replace": "\tpayout, supply := redeemQuote(c, amount)"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the coin is not burned",
+  "find": "\tc.coin.Burn(who, amount)\n\tif payout > c.reserve {",
+  "replace": "\tif payout > c.reserve {"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the reserve is not debited",
+  "find": "\tc.reserve -= payout\n\ttotalReserve -= payout",
+  "replace": "\ttotalReserve -= payout"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the realm-wide total is not debited",
+  "find": "\ttotalReserve -= payout\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the paid-out total is not credited",
+  "find": "\tc.redeemedGNOT = mustAdd(c.redeemedGNOT, payout)\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the payout rounds up",
+  "find": "\treturn mulDiv128(c.reserve, amount, supply), supply",
+  "replace": "\treturn mulDiv128(c.reserve, amount, supply) + 1, supply"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the payout is denominated in coin units",
+  "find": "\tb.SendCoins(cur.Address(), who, chain.Coins{chain.NewCoin(gnotDenom, payout)})",
+  "replace": "\tb.SendCoins(cur.Address(), who, chain.Coins{chain.NewCoin(gnotDenom, amount)})"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: a one-way court is redeemable",
+  "find": "\tif c.oneWay {\n\t\tpanic(\"kourtv3: this court's coin is one-way; nothing returns GNOT\")",
+  "replace": "\tif false {\n\t\tpanic(\"kourtv3: this court's coin is one-way; nothing returns GNOT\")"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: a court with no reserve pays anyway",
+  "find": "\tif c.reserve <= 0 {\n\t\tpanic(\"kourtv3: this court holds no reserve\")",
+  "replace": "\tif false {\n\t\tpanic(\"kourtv3: this court holds no reserve\")"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: a zero payout burns coin for nothing",
+  "find": "\tif payout > 0 {\n\t\treturn\n\t}\n\tleast :=",
+  "replace": "\tif true {\n\t\treturn\n\t}\n\tleast :="
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: the curve position rewinds",
+  "find": "\tc.reserve -= payout\n\ttotalReserve -= payout",
+  "replace": "\tc.reserve -= payout\n\ttotalReserve -= payout\n\tc.minted -= amount"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "Redeem: attached GNOT is silently kept",
+  "find": "\tif unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
+  "replace": "\tif false {"
  }
 ]

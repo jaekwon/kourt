@@ -1,10 +1,19 @@
-// Package kourtv3 is kourt V2: no-loss conviction staking. Each court is
-// its own coin, governor, and one-way bonding curve, with claims resolved by the
-// V1 answer/dispute machine — but the market layer is gone. Stakers back YES or
-// NO directly; losers always withdraw 1×; winners share a bounded, stepped-down
-// emission of new CC weighted by conviction (stake × time) and an adjudicated
-// quality tier. Real money (GNOT) enters once through the curve and is BURNED;
-// no real money ever exits, and no value ever moves between adversaries
+// Package kourtv3 is kourt V3: no-loss conviction staking on a TWO-WAY coin.
+// Each court is its own coin, governor, and bonding curve, with claims resolved
+// by the V1 answer/dispute machine — but the market layer is gone. Stakers back
+// YES or NO directly; losers always withdraw 1×; winners share a bounded,
+// stepped-down emission of new CC weighted by conviction (stake × time) and an
+// adjudicated quality tier.
+//
+// WHAT V3 CHANGES, and it is one thing: real money (GNOT) enters through the
+// curve and SPLITS. A DAO-set share burns to a keyless sink exactly as V2's
+// whole payment did; the rest is HELD, per court, in this realm's own account
+// and paid back pro-rata — reserve × coin / supply, floored — to any holder who
+// returns coin through Redeem (redeem.gno). Nobody administers that reserve:
+// Redeem's payout is the only instruction that can move it, and it pays every
+// coin the same. A court may instead be founded ONE-WAY (StartOneWayCourt), in
+// which case its whole payment burns and nothing redeems; the meta court is
+// founded that way at init. Still no value ever moves between adversaries
 // ("forfeitures burn; compensation mints").
 package kourtv3
 
@@ -616,7 +625,7 @@ type Court struct {
 
 	coin *grc20votes.Ledger // the court coin (CC)
 	gov  *governor.Governor // the dispute arbiter; electorate = coin
-	crv  curve.Curve        // one-way GNOT -> CC; proceeds are burned
+	crv  curve.Curve        // GNOT -> CC, position monotone; the burn share of proceeds goes to the sink, the rest to reserve
 
 	// escrow holds deposits and bonds — NOT stake, since v0.34 — and it never
 	// votes, because those coins are physically here rather than with their
@@ -716,9 +725,27 @@ type Court struct {
 	stripIdx   *bptree.BPTree // be(deadline)|be(claimID) -> claimID
 	pendingIdx *bptree.BPTree // be(openedAt)|be(claimID) -> claimID
 
-	// Directory ordering (modrender.gno): cumulative GNOT burned into this
-	// court's curve — the un-sybil-able front-page rank — plus this court's
-	// current key in the burn index and its creation sequence.
+	// TWO-WAY OR ONE-WAY, fixed at creation and never changed: a founder who
+	// could flip it later could turn every holder's returnable share into a burn
+	// under them. One-way courts burn the whole payment (V2's disposition) and
+	// Redeem refuses them; the meta court is one-way by construction, because
+	// franchise-minted META has no GNOT behind it (redeem.gno).
+	oneWay bool
+	// reserve is the µGNOT HELD at the realm's own address on THIS court's
+	// behalf: Buy credits the un-burned share of every payment, Redeem debits
+	// the floor pro-rata payout, nothing else touches it. A LEDGERED COUNTER,
+	// never a bank read — one realm address holds every court's GNOT (and
+	// strangers may send it coin), so GetCoin cannot be per-court and must never
+	// be the figure Redeem pays from. redeemedGNOT is the monotone total ever
+	// paid back out, so burnedGNOT + reserve + redeemedGNOT is every µGNOT this
+	// curve ever took, from reads alone.
+	reserve      int64
+	redeemedGNOT int64
+	paidIn       int64 // every µGNOT the curve ever took: burnedGNOT + reserve + redeemedGNOT, kept so the identity is testable from one side
+	// Directory ordering (modrender.gno): cumulative GNOT BURNED into this
+	// court's curve — the un-sybil-able front-page rank, because a burned µGNOT
+	// is one nobody gets back — plus this court's current key in the burn index
+	// and its creation sequence. Redeem never touches it.
 	burnedGNOT int64
 	burnKey    string
 	createdSeq uint64
@@ -780,7 +807,24 @@ func StartCourt(cur realm, slug, name string) string {
 		panic(errStaleRealm)
 	}
 	takeCourtCreationBurn(cur)
-	return startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0)
+	return startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0, false)
+}
+
+// StartOneWayCourt is StartCourt for a court whose coin is one-way: the whole
+// of every payment burns to the keyless sink, nothing is held in reserve, and
+// Redeem refuses it forever. This is V2's disposition, offered as a choice.
+//
+// FIXED AT CREATION. There is no setter, on purpose: a court that could become
+// one-way later would turn every holder's returnable share into a burn under
+// them, and one that could become two-way later would have a reserve of zero
+// against a live supply — both are the kind of change a holder cannot consent
+// to after the fact. A founder who wants the other kind founds another court.
+func StartOneWayCourt(cur realm, slug, name string) string {
+	if !cur.IsCurrent() {
+		panic(errStaleRealm)
+	}
+	takeCourtCreationBurn(cur)
+	return startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, 0, true)
 }
 
 // StartCourtP is StartCourt with an opt-in polish window (§9): staking is
@@ -794,17 +838,17 @@ func StartCourtP(cur realm, slug, name string, stakeOpenDelay int64) string {
 		panic(errStaleRealm)
 	}
 	takeCourtCreationBurn(cur)
-	return startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, stakeOpenDelay)
+	return startCourtUser(cur.Previous().Address(), cur.Address(), slug, name, stakeOpenDelay, false)
 }
 
 // startCourtUser is the public creation path: it refuses the reserved `meta`
 // slug (only realm init may create the meta court, via startCourt directly),
 // then delegates to startCourt.
-func startCourtUser(admin, escrowAddr address, slug, name string, delay int64) string {
+func startCourtUser(admin, escrowAddr address, slug, name string, delay int64, oneWay bool) string {
 	if slug == metaSlug {
 		panic("kourtv3: the 'meta' slug is reserved")
 	}
-	return startCourt(admin, escrowAddr, slug, name, delay)
+	return startCourt(admin, escrowAddr, slug, name, delay, oneWay)
 }
 
 // startCourt creates a court: its coin, governor, curve, and claim book. It is
@@ -812,7 +856,7 @@ func startCourtUser(admin, escrowAddr address, slug, name string, delay int64) s
 // escrow) to deploy the meta court, which is why it takes admin/escrow as
 // arguments rather than reading a crossing realm. No payment is collected
 // (court-count floods are storage-deposit-priced, MODERATION.md §2/§13.5).
-func startCourt(admin, escrowAddr address, slug, name string, delay int64) string {
+func startCourt(admin, escrowAddr address, slug, name string, delay int64, oneWay bool) string {
 	mustSlug(slug)
 	mustCourtName(name)
 	if courts.Has(slug) {
@@ -841,6 +885,7 @@ func startCourt(admin, escrowAddr address, slug, name string, delay int64) strin
 		gov:            governor.New(coin, coin),
 		crv:            curve.New(curveDenom, curveCap),
 		escrow:         escrowAddr,
+		oneWay:         oneWay,
 		claims:         bptree.NewBPTree32(),
 		queue:          bptree.NewBPTree32(),
 		records:        bptree.NewBPTree32(),
@@ -1042,10 +1087,16 @@ func CourtSymbol(slug string) string { return mustCourt(slug).coin.Symbol() }
 func CoinDecimals() int { return coinDecimals }
 func CoinSupply(slug string) int64   { return mustCourt(slug).coin.TotalSupply() }
 
-// CoinPrice is the curve's marginal price for the next coin. There is no
-// "backing" read in V2: burned GNOT backs nothing, and rendering one would
-// imply a redemption value that does not exist (PLAN §3.8 pass 2).
+// CoinPrice is the curve's marginal price for the NEXT coin. It is not what a
+// coin returns: that is RedeemValue (redeem.gno), which is the pro-rata share
+// of what the court holds and is ALWAYS at most CoinPrice × amount — about half
+// of it right after an offering, and less as emission mints (TWOWAY.md). Render
+// the two side by side and never label either one "backing".
 func CoinPrice(slug string) int64 { return mustCourt(slug).crv.Price(mustCourt(slug).minted) }
+
+// CourtOneWay reports whether a court's coin is one-way: its payments burn in
+// full and Redeem refuses it. Fixed at creation; the meta court is always true.
+func CourtOneWay(slug string) bool { return mustCourt(slug).oneWay }
 
 // CourtEscrow is the address holding a court's staked CC, deposits, and bonds —
 // the realm's own address; each court's coin ledger isolates its balances.

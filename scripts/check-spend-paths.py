@@ -70,9 +70,9 @@ WHAT IS LEFT IS THE HALF NOTHING ELSE PINS: the CENSUS — the set of functions 
 The census refuses to pass vacuously: no guards found, or a named test missing,
 both mean the pattern has drifted off the code rather than that the code is clean.
 
-votelock.gno's header states the same census independently — "All SEVEN
+votelock.gno's header states the same census independently — "All NINE
 mustSpendable call sites move coin OUT of the holder's balance", enumerating them,
-with Stake the single mustStakable exemption. Seven plus one is the eight below, so
+with Stake the single mustStakable exemption. Nine plus one is the ten below, so
 the number here is one the design commits to in two places.
 """
 
@@ -112,6 +112,13 @@ SPEND_PATHS = {
     ("lock.gno", "TransferFromCC"): "TestAnAllowanceDoesNotOutrankALock",
     ("association.gno", "AddAssociation"): "TestLockedStakeCannotBeSpentTwice",
     ("posting.gno", "BuyCommentPass"): "TestAPassCannotBeBoughtWithCommittedCoin",
+    # THE TENTH, and the first that pays GNOT for what it destroys. Redeem
+    # burns the caller's coin and sends the court's pro-rata share back; behind
+    # mustSpendable so a stake or an open vote cannot be cashed out from under
+    # the commitment it backs — which is the whole reason a two-way coin does
+    # not reopen the rented ballot (votelock.gno). Proved by both refusals and a
+    # successful redeem of exactly the free part.
+    ("redeem.gno", "Redeem"): "TestCommittedCoinCannotBeRedeemed",
 }
 
 # The test lock.gno's header names: "there is a test that stakes a whole balance

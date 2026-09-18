@@ -135,11 +135,11 @@ func takeCourtCreationBurn(cur realm) {
 	//
 	// The first cut burned `price` and refunded the excess, copying Buy. That
 	// version was wrong here, and check-nontransferable caught it: a refund is
-	// GNOT LEAVING THE REALM TO A USER, which is the one thing this realm's
-	// regulatory position rests on never happening ("the payment is burned,
-	// nothing ever redeems" — REGULATIONS.md). Buy's remainder send is the sole
-	// sanctioned exception and it exists because a bonding curve genuinely
-	// cannot spend the last ugnot; there is no such arithmetic here.
+	// GNOT LEAVING THE REALM TO A USER, and that guard pins every such send to
+	// the two that are sanctioned — Buy's dust change, which exists because a
+	// bonding curve genuinely cannot spend the last ugnot, and Redeem's
+	// pro-rata payout from what a court holds (redeem.gno). A creation fee is
+	// neither: it prices entry and belongs to no court's reserve.
 	//
 	// Burning all of it removes the refund instead of arguing for it, and the
 	// semantics come out cleaner: send at least the minimum and all of it goes

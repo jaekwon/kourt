@@ -100,12 +100,18 @@ func TestSupplySeriesCoalescesWithinAnEpoch(cur realm, t *testing.T) {
 // The burn history must track what CourtBurnedGNOT reports, and must move only
 // when somebody actually spent — that is the whole reason it is kept separately
 // from supply, which also moves on emissions nobody paid for.
-func TestBurnSeriesFollowsWhatWasSpent(cur realm, t *testing.T) {
+// The series follows the BURNED share, not the payment: CourtBurnedGNOT is what
+// the sink received, and the held share — which Redeem can pay back — is read
+// live as ReserveGNOT and charted nowhere as "absorbed".
+func TestBurnSeriesFollowsWhatWasBurned(cur realm, t *testing.T) {
 	alice := testutils.TestAddress("bs-alice")
 	fundAndBuy(cur, "bs1", alice, 300_000_000)
 	first := CourtBurnedGNOT("bs1")
 	if first <= 0 {
 		t.Fatalf("fixture bought nothing: burned = %d", first)
+	}
+	if first != 30_000_000 {
+		t.Fatalf("the series records the burn share of 300 GNOT, not the payment: %d", first)
 	}
 
 	_, _, _, rows := splitSeries(t, BurnSeries("bs1"))

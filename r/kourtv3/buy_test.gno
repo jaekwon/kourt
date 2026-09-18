@@ -31,7 +31,7 @@ func fundAndBuy(cur realm, slug string, who address, gnot int64) {
 	testing.SetOriginSend(nil)
 }
 
-func TestBuyMintsAndBurnsGNOT(cur realm, t *testing.T) {
+func TestBuySplitsThePaymentIntoBurnAndReserve(cur realm, t *testing.T) {
 	alice := testutils.TestAddress("buy-alice")
 	fundAndBuy(cur, "buy1", alice, 300_000_000)
 
@@ -40,10 +40,33 @@ func TestBuyMintsAndBurnsGNOT(cur realm, t *testing.T) {
 	if minted <= 0 || c.minted != minted {
 		t.Fatalf("the curve mints to the buyer and tracks its position: %d vs %d", minted, c.minted)
 	}
-	// The spent GNOT sits at the keyless sink (burned): the realm keeps none.
+	// THE SPLIT, at the launch share: a tenth of what was spent sits at the
+	// keyless sink, the rest is HELD at the realm's own address and ledgered
+	// against this court. 300 GNOT spends exactly on a fresh curve, so the
+	// figures are round: 30 burned, 270 held. burned + reserved == spent is an
+	// integer identity, asserted rather than assumed.
 	spent, _ := c.crv.Cost(0, minted)
-	if sink := BurnedGNOT(); sink != spent {
-		t.Fatalf("the sink must hold exactly the spent GNOT: %d vs %d", sink, spent)
+	if spent != 300_000_000 {
+		t.Fatalf("the fixture spends exactly on a fresh curve: %d", spent)
+	}
+	if sink := BurnedGNOT(); sink != 30_000_000 {
+		t.Fatalf("the sink must hold the burn share of the spend: %d", sink)
+	}
+	if got := ReserveGNOT("buy1"); got != 270_000_000 {
+		t.Fatalf("the court must hold the rest for its coin: %d", got)
+	}
+	if held := ugnotOf(chain.PackageAddress(realmPath)); held != 270_000_000 {
+		t.Fatalf("the realm's own balance must be the reserve, no more and no less: %d", held)
+	}
+	if BurnedGNOT()+ReserveGNOT("buy1") != spent {
+		t.Fatal("burned + held must be exactly what was spent")
+	}
+	if CourtBurnedGNOT("buy1") != 30_000_000 || FranchiseOf(alice) != 30_000_000 {
+		t.Fatalf("rank and franchise key on the BURNED share only: %d / %d",
+			CourtBurnedGNOT("buy1"), FranchiseOf(alice))
+	}
+	if TotalReserveGNOT() < 270_000_000 {
+		t.Fatalf("the realm-wide total counts this court's reserve: %d", TotalReserveGNOT())
 	}
 	// A second buy continues up the curve — strictly more expensive per coin.
 	fundAndBuy(cur, "buy1", alice, 300_000_000)
@@ -173,6 +196,7 @@ func TestBuyReturnsTheUnspendableRemainder(cur realm, t *testing.T) {
 	held := ugnotOf(alice)
 	sink := BurnedGNOT()
 	kept := ugnotOf(chain.PackageAddress(realmPath))
+	reserveBefore := ReserveGNOT("buy3")
 
 	testing.IssueCoins(chain.PackageAddress(realmPath), chain.Coins{{Denom: "ugnot", Amount: pay}})
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: pay}})
@@ -186,11 +210,25 @@ func TestBuyReturnsTheUnspendableRemainder(cur realm, t *testing.T) {
 	if back := ugnotOf(alice) - held; back != extra {
 		t.Fatalf("the buyer gets the unspendable remainder back: %d, want %d", back, extra)
 	}
-	if burned := BurnedGNOT() - sink; burned != exact {
-		t.Fatalf("the sink burns what was spent, not the envelope: %d, want %d", burned, exact)
+	// THE SPLIT IS OF `exact`, NEVER OF THE ENVELOPE: the extra ugnot went back
+	// to the buyer above, so neither the sink nor the reserve may have seen it.
+	// The burn share rounds UP (splitPayment), so the sink takes the odd µGNOT
+	// when exact does not divide by ten.
+	wantReserved := mulDiv128(exact, bpsDenom-burnBps, bpsDenom)
+	wantBurned := exact - wantReserved
+	if burned := BurnedGNOT() - sink; burned != wantBurned {
+		t.Fatalf("the sink burns the burn share of what was spent, not the envelope: %d, want %d", burned, wantBurned)
 	}
-	if left := ugnotOf(chain.PackageAddress(realmPath)) - kept; left != 0 {
-		t.Fatalf("the realm keeps none of the payment: %d", left)
+	// AND THE REALM KEEPS EXACTLY THE HELD SHARE — not the envelope, not zero.
+	// Three mutants used to be told apart by "keeps none"; they still are: a
+	// reserve credited from `sent` is off by `extra`, one credited with the
+	// whole cost is off by wantBurned, and one not credited at all is off by
+	// wantReserved.
+	if left := ugnotOf(chain.PackageAddress(realmPath)) - kept; left != wantReserved {
+		t.Fatalf("the realm keeps exactly the held share of the payment: %d, want %d", left, wantReserved)
+	}
+	if ReserveGNOT("buy3") != wantReserved+reserveBefore {
+		t.Fatalf("the court's ledgered reserve follows the bank: %d", ReserveGNOT("buy3"))
 	}
 }
 

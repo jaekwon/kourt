@@ -1,6 +1,8 @@
-// Buy: the one-way bonding curve, V2 disposition — the GNOT is BURNED (PLAN
-// §3.7). No treasury exists, nothing ever redeems, and no "backing" figure is
-// read or rendered: CC is participation, not a claim on assets.
+// Buy: the bonding curve, V3 disposition — the payment SPLITS. A DAO-set share
+// (BurnBps, a tenth at launch) is BURNED to a keyless sink exactly as V2 burned
+// the whole of it; the rest is HELD in c.reserve and paid back pro-rata by
+// Redeem (redeem.gno). A one-way court burns all of it, as V2 did. The curve
+// position never walks back. No "backing" figure is rendered; RedeemValue is.
 
 package kourtv3
 
@@ -8,20 +10,22 @@ import (
 	"chain"
 	"chain/banker"
 	"chain/runtime/unsafe"
+	"strconv"
 )
 
 const gnotDenom = "ugnot"
 
-// burnSinkPath derives the keyless burn address (pin P14): a sub-realm
+// burnSinkPath derives the keyless burn address: a sub-realm
 // identity of THIS realm that is never created. Only kourtv3 itself could ever
 // instantiate it (realm.Sub is parent-only), and it never does — so no key,
 // no code, no path to the coins, ever.
 const burnSinkPath = "gno.land/r/kourt/kourtv3:burned"
 
-// Buy mints CC for GNOT on the one-way curve and burns the GNOT. Returns the
-// CC minted; the unspent remainder of the payment is refunded. The curve is
-// the only GNOT-side mint and its position is monotonic — the same stretch is
-// never sold twice.
+// Buy mints CC for GNOT on the curve, burns the burn share of the payment and
+// holds the rest in the court's reserve. Returns the CC minted; the unspent
+// remainder of the payment is refunded. The curve is the only GNOT-side mint
+// and its position is monotonic — the same stretch is never sold twice, and
+// Redeem never walks it back.
 func Buy(cur realm, slug string) int64 {
 	if !cur.IsCurrent() {
 		panic(errStaleRealm)
@@ -56,22 +60,34 @@ func Buy(cur realm, slug string) int64 {
 	c.minted += delta // monotonic curve position
 	recordPrice(c)     // the position moved, so the price may have ticked
 	c.coin.Mint(buyer, delta)
-	// Track cumulative GNOT burned into this court and keep the directory's
-	// burn-ordered index in step. Burned GNOT is the one un-sybil-able signal a
-	// court can accrue — you cannot fake having burned real money — which is why
-	// the front page ranks on it (MODERATION.md §3.2). Render-layer only: no
-	// money path reads the index.
-	reindexBurn(c, spent)
-	// Accrue this burn toward the buyer's appeals-layer weight (meta.gno). It
-	// only ACCRUES — nothing is minted until the buyer claims — so meta's supply
-	// tracks the engaged electorate rather than every passerby.
-	accrueFranchise(c, buyer, spent)
 
-	// BURN the spent GNOT: send it to the keyless sink. Verifiable on-chain;
-	// never described as a scarcity feature (§7.4 / Munchee).
+	// THE SPLIT. Of the exact curve cost — `spent`, never `sent`: the dust below
+	// is the buyer's — a share burns and the rest is held for this court's coin.
+	// The held share stays at this realm's own address with no send at all; the
+	// money-path add fails loud rather than skip (mustAdd), because a reserve
+	// that quietly under-counts is a reserve that pays out somebody else's GNOT.
+	burned, reserved := splitPayment(c, spent)
+	c.reserve = mustAdd(c.reserve, reserved)
+	c.paidIn = mustAdd(c.paidIn, spent)
+	totalReserve = mustAdd(totalReserve, reserved)
+	// RANK AND FRANCHISE KEY ON THE BURNED SHARE ONLY. Burned GNOT is the one
+	// un-sybil-able signal a court can accrue — you cannot fake having destroyed
+	// real money — which is why the front page ranks on it (MODERATION.md §3.2)
+	// and why the appeals-layer entitlement (meta.gno) is denominated in it. The
+	// held share is exactly what Redeem can pay back, so crediting either on it
+	// would make a shell court a free mint: buy, accrue, redeem, repeat. On the
+	// burned share a lap costs what it earns. Both are render-layer or accrual-
+	// only: no money path reads the index, and nothing is minted until claimed.
+	reindexBurn(c, burned)
+	accrueFranchise(c, buyer, burned)
+
+	// BURN the burn share: send it to the keyless sink. Verifiable on-chain;
+	// never described as a scarcity feature (§7.4 / Munchee). The ceiling on the
+	// split (splitPayment) makes this at least 1 µGNOT for every real buy, so
+	// this send always runs and its textual count is its runtime count.
 	b := banker.NewBanker(banker.BankerTypeRealmSend, cur)
 	b.SendCoins(cur.Address(), chain.PackageAddress(burnSinkPath),
-		chain.Coins{chain.NewCoin(gnotDenom, spent)})
+		chain.Coins{chain.NewCoin(gnotDenom, burned)})
 
 	// THE BUYER'S CHANGE, and it is paid on most buys — which is the opposite of what
 	// this comment used to say. It read: unreachable at this curve's granularity, delta
@@ -97,6 +113,17 @@ func Buy(cur realm, slug string) int64 {
 	if r := sent - spent; r > 0 {
 		b.SendCoins(cur.Address(), buyer, chain.Coins{chain.NewCoin(gnotDenom, r)})
 	}
+	// THE SPLIT IS ON THE RECORD. A buyer can verify what burned and what was
+	// held for them without trusting the page that quoted it, and an indexer can
+	// total the reserve from events alone. Strings, as every emit here.
+	chain.Emit(boughtEvent,
+		"court", c.id,
+		"who", buyer.String(),
+		"minted", strconv.FormatInt(delta, 10),
+		"spent", strconv.FormatInt(spent, 10),
+		"burned", strconv.FormatInt(burned, 10),
+		"reserved", strconv.FormatInt(reserved, 10),
+	)
 	return delta
 }
 

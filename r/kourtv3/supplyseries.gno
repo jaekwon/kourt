@@ -8,8 +8,9 @@ package kourtv3
 //
 // BURN DOES, and it is one row per epoch in which somebody bought. It cannot be
 // derived from supply: supply also moves on reward emissions, which burn no
-// GNOT, and the burn total counts bond and deposit burns that never minted
-// anything. Two different questions, so two different records.
+// GNOT, and falls on redemptions, which burn none either. It is the BURNED
+// SHARE of each payment and nothing else — not the held share, which Redeem
+// can pay back and which is read live as ReserveGNOT.
 
 import (
 	"strconv"
@@ -107,10 +108,12 @@ func SupplySeries(courtSlug string) string {
 
 // BurnSeries is the cumulative GNOT burned into this court's curve over time,
 // in the same grammar as SupplySeries. Values are ugnot and never decrease —
-// the curve is one way, so this is the real value the court has absorbed.
+// a burned µGNOT is one nobody gets back, so this is the value the court has
+// absorbed for good. The held share is not in it: that can be paid back, and
+// is read live as ReserveGNOT rather than charted as absorbed.
 //
 // Read it as the court's livelihood: supply can rise on emissions nobody paid
-// for, but this only moves when somebody spent.
+// for and fall on redemptions, but this only moves when somebody burned.
 func BurnSeries(courtSlug string) string {
 	c := mustCourt(courtSlug)
 	pts, more := collectSeriesKeyed(c.csArch, &c.burnH, burnSeriesKey)

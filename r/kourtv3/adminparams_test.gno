@@ -47,7 +47,7 @@ func TestAdminParamsIsASingleLine(cur realm, t *testing.T) {
 	// Every documented key is present. A listing that silently drops a
 	// parameter is worse than no listing: it reads as "these are all of them".
 	for _, k := range []string{
-		"admin", "creationBurn", "assocBond", "purgeM",
+		"admin", "creationBurn", "burnBps", "assocBond", "purgeM",
 		"t1", "t2", "t3", "entry", "l2", "l3",
 		"flag", "dispute", "authorHigh", "conviction", "unadjudicated",
 		"domain", "mediaExact", "mediaSuffix",

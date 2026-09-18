@@ -111,7 +111,12 @@ var meta = &metaState{
 // startCourt directly rather than StartCourt, because the public path reserves
 // this slug precisely so only init can take it.
 func init() {
-	startCourt(unsafe.OriginCaller(), chain.PackageAddress(metaRealmPath), metaSlug, metaCourtNm, 0)
+	// ONE-WAY, and not by a slug check somewhere else: franchise mints META
+	// against GNOT that was paid into OTHER courts and sits in THEIR reserves,
+	// so a META reserve would hold only direct buyers' GNOT while every claimant
+	// held a share of it. Founding it one-way makes reserve == 0 an invariant
+	// one wall thick — Buy never credits it — rather than a refusal away.
+	startCourt(unsafe.OriginCaller(), chain.PackageAddress(metaRealmPath), metaSlug, metaCourtNm, 0, true)
 }
 
 // parseModTitle reads a reserved title. Anything that is not an exact match is
@@ -616,13 +621,17 @@ func AppealLatchHolder(verb, court string, target uint64) uint64 {
 // Three independent vets converged on the same shape, and every clause below
 // exists because a specific attack needs it:
 //
-//   - accrue on `spent` µGNOT, NEVER on CC minted. A fresh curve sells CC
-//     ~44,721x cheaper per GNOT and StartCourt is free, so a per-CC rule is an
-//     unbounded sqrt(N) free-mint of the platform's governance token. Per-GNOT
-//     makes the court you burn into irrelevant — and that is sound ONLY because
-//     the GNOT is truly burned to a keyless sink with no redemption path
-//     anywhere. TRIPWIRE: this breaks the instant a treasury or redemption is
-//     reintroduced.
+//   - accrue on BURNED µGNOT, NEVER on CC minted and NEVER on the held share.
+//     A fresh curve sells CC ~44,721x cheaper per GNOT and StartCourt is free,
+//     so a per-CC rule is an unbounded sqrt(N) free-mint of the platform's
+//     governance token. Per-GNOT makes the court you burn into irrelevant — and
+//     that is sound ONLY because the GNOT counted is truly burned to a keyless
+//     sink. V3 reintroduced a held share and a Redeem (redeem.gno), and this
+//     accrual survived it by keying on the burned slice alone: a court where
+//     you are the only holder redeems your whole reserve back, so a franchise
+//     credited on the held share would be minted for free, lap after lap.
+//     TRIPWIRE, restated: this breaks the instant franchise is credited on
+//     anything Redeem can pay back.
 //   - CLAIM-ON-DEMAND, not an airdrop. Burning accrues an entitlement; meta-CC
 //     exists only when its owner asks for it. This one choice does four jobs:
 //     supply stays equal to the ENGAGED electorate (so the 5%-of-supply quorum

@@ -41,11 +41,18 @@ func main(cur realm) {
 	// the sentence this filetest was written for.
 	kourtv3.SetLadderDefault(cross(cur), 5, 25, 100, 3, 10)
 	kourtv3.SetCreditRatesDefault(cross(cur), 10000, 10000, 2000, 1000, 5000)
+	// THE THIRD REALM-WIDE SETTER: the burn share of every payment. It moves
+	// what every future buyer on every court gets back, so it is the widest act
+	// of the three, and the event carries old and new so a reader of the log
+	// can see the step and not only the destination.
+	kourtv3.SetBurnBps(cross(cur), 1500)
+	println("burn bps:", kourtv3.BurnBps())
 }
 
 // Output:
 // folder: 1
 // retired: false
+// burn bps: 1500
 
 // Events:
 // [
@@ -167,6 +174,32 @@ func main(cur realm) {
 //       {
 //         "key": "act",
 //         "value": "set-rates-default:10000:10000:2000:1000:5000"
+//       },
+//       {
+//         "key": "by",
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
+//       },
+//       {
+//         "key": "height",
+//         "value": "123"
+//       }
+//     ],
+//     "pkg_path": "gno.land/r/kourt/kourtv3"
+//   },
+//   {
+//     "type": "GlobalAct",
+//     "attrs": [
+//       {
+//         "key": "court",
+//         "value": "*"
+//       },
+//       {
+//         "key": "claim",
+//         "value": "0"
+//       },
+//       {
+//         "key": "act",
+//         "value": "set-burn-bps:1000-\u003e1500"
 //       },
 //       {
 //         "key": "by",

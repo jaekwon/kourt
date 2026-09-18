@@ -48,6 +48,15 @@ func main(cur realm) {
 	println("emitted total:     ", kourtv3.EmittedTotal("meta"))
 	println("court burn:        ", kourtv3.CourtBurnedGNOT("meta"))
 	println("escrow is set:     ", kourtv3.CourtEscrow("meta") != "")
+	// The two-way reads. Meta is founded one-way, so every figure here is the
+	// zero that a court holding nothing for its coin must answer — and none of
+	// these may allocate on a court that never chose to hold anything.
+	println("meta one-way:      ", kourtv3.CourtOneWay("meta"))
+	println("meta reserve:      ", kourtv3.ReserveGNOT("meta"))
+	println("meta redeemed:     ", kourtv3.RedeemedGNOT("meta"))
+	println("redeem value:      ", kourtv3.RedeemValue("meta", 1_000_000))
+	println("total reserve:     ", kourtv3.TotalReserveGNOT())
+	println("burn bps:          ", kourtv3.BurnBps())
 
 	// The moderation reads. These are the ones that were allocating: a court
 	// with no moderation state must answer every one of them without creating
@@ -135,6 +144,12 @@ func main(cur realm) {
 // emitted total:      0
 // court burn:         0
 // escrow is set:      true
+// meta one-way:       true
+// meta reserve:       0
+// meta redeemed:      0
+// redeem value:       0
+// total reserve:      0
+// burn bps:           1000
 // suspended:          false
 // purged:             false
 // stranger is a mod:  false

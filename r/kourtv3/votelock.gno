@@ -31,11 +31,11 @@ import "gno.land/p/nt/bptree/v0"
 //     a zero-cost moderator coup. Escrowed coin does not vote — which is what
 //     votableAt already says.
 //
-// IT BLOCKS DISPOSAL, NOT STAKING, and that distinction is deliberate. All SEVEN
+// IT BLOCKS DISPOSAL, NOT STAKING, and that distinction is deliberate. All NINE
 // mustSpendable call sites move coin OUT of the holder's balance — the claim
-// deposit, the answer bond, the dispute bond, the flag bond, the election
-// nomination bond, and the two transfer paths in lock.gno — so all seven respect
-// both locks. Stake is the single exemption and does not go through mustSpendable
+// deposit, the answer bond, the dispute bond, the association bond, the election
+// nomination bond, the two transfer paths in lock.gno, the comment pass's burn,
+// and Redeem's burn — so all nine respect both locks. Stake is the single exemption and does not go through mustSpendable
 // at all: it calls mustStakable, because staking is a pure lock that leaves the
 // coin where it is and keeps it voting, and a pending vote is no reason to refuse
 // it.

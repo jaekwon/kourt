@@ -167,17 +167,29 @@ TARGETS = [
     {
         "src": os.path.join(REPO, "r/kourtv3"),
         "dest": "examples/gno.land/r/kourt/kourtv3",
-        # THE THIRD GENERATION, budgeted from the day it was copied. kourtv3 began
-        # as a rename of kourtv2 (the two-way curve lands here, because the repo's
-        # kourtv2 mirrors what is live on gnoland-1 and a package deploys once), so
-        # its first figures are kourtv2's. Every line below gets re-measured the
-        # moment the reserve field and Redeem land, with a note of its own.
+        # THE THIRD GENERATION, where the two-way curve lives (the repo's kourtv2
+        # mirrors what is live on gnoland-1 and a package deploys once). RE-MEASURED
+        # when the reserve landed: Court gained oneWay, reserve, redeemedGNOT and
+        # paidIn — four scalars, which the three figures below put at 155b for
+        # three courts (93,224 -> 93,379; 44,010 -> 44,165), i.e. about 52b per
+        # court, the rounding error against a 12.3kb claim the v2 note predicted.
         "deps": ["checkpoint", "grc20votes", "governor", "twap", "curve"],
         "budgets": {
+            # None, and it now covers ReserveGNOT, RedeemValue, RedeemedGNOT,
+            # TotalReserveGNOT, BurnBps and CourtOneWay on the one-way meta court:
+            # every one is a field read or one 128-bit divide, and kourt.xyz will
+            # ask RedeemValue on every court page. Measured writing nothing.
             "z_read_filetest.gno": None,
+            # 93,379b measured with the four fields; 97,000 is 3.9% headroom, the
+            # same band as before and deliberately tight — see the v2 note.
             "z_claimcost_filetest.gno": 97_000,
             "z_testclock_filetest.gno": None,
-            "z_events_filetest.gno": 61_000,
+            # 60,521b measured: the four fields plus the SetBurnBps global act the
+            # file now also exercises (60,360 -> 60,521, +161b). The old 61,000
+            # ceiling left 0.8%, which is a ceiling that trips on a comment; 63,000
+            # is about 4%. Do not raise it again without a line like this one.
+            "z_events_filetest.gno": 63_000,
+            # 44,165b measured (+155b, the fields); 50,000 stands.
             "z_sitedomain_filetest.gno": 50_000,
         },
     },

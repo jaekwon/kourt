@@ -303,8 +303,18 @@ func writeCourtCoin(b *strings.Builder, c *Court) {
 	b.WriteString("- " + qualifiedSymbol(c) +
 		" — this court's own coin, not interchangeable with any other court's\n")
 	b.WriteString("- price: " + strconv.FormatInt(c.crv.Price(c.minted), 10) +
-		" ugnot per coin — buying burns the GNOT, there is no sell side, " +
-		"and the price only rises\n")
+		" ugnot per coin — the next coin's price, and it only rises\n")
+	if c.oneWay {
+		b.WriteString("- one-way: every payment burns in full; nothing is held and " +
+			"nothing returns GNOT\n")
+	} else {
+		perCoin, _ := redeemQuote(c, coinUnit)
+		b.WriteString("- held for the coin: " + ugnotAmt(c.reserve) + " GNOT · " +
+			"one coin returns " + strconv.FormatInt(perCoin, 10) +
+			" ugnot right now (what is held × coin ÷ supply, rounded down; " +
+			"always below the price) · " + pct(burnBps, bpsDenom) +
+			" of each payment burns\n")
+	}
 	b.WriteString("- in circulation: " + strconv.FormatInt(c.coin.TotalSupply(), 10) +
 		" · paid out as rewards so far: " + strconv.FormatInt(c.emittedTotal, 10) + "\n")
 	b.WriteString("- reward reservoir: " + strconv.FormatInt(c.reservoirR(), 10) +

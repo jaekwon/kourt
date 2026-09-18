@@ -141,8 +141,13 @@ func renderHelp() string {
 	b.WriteString("- **Staking** costs only the stake, which you get back.\n")
 	b.WriteString("- **Opening a claim** takes a deposit, refunded when the claim is " +
 		"answered or closed.\n")
-	b.WriteString("- **Buying a court's coin** burns GNOT one way. There is no sell " +
-		"side and no redemption; the price only rises as more is bought.\n\n")
+	b.WriteString("- **Receiving a court's coin** takes GNOT on a rising curve. A " +
+		"share of it (" + pct(burnBps, bpsDenom) + " today, set by the " +
+		"platform's governing court within fixed bounds) is burned for good; the " +
+		"rest is held by the court and paid back pro-rata to anyone who returns " +
+		"coin — less than they put in, right after they put it in, and never more " +
+		"than the next coin's price. A one-way court burns all of it. The price " +
+		"only rises as more is minted.\n\n")
 
 	b.WriteString("## Who is in charge\n\n")
 	b.WriteString("Each court elects its own moderators. They answer claims, organise " +

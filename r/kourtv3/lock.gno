@@ -58,10 +58,11 @@ func lockedOf(c *Court, who address) int64 {
 func spendable(c *Court, who address) int64 {
 	s := c.coin.BalanceOf(who) - lockedOf(c, who)
 	if s < 0 {
-		// Only reachable if a burn ever took coins out from under a lock. It
-		// does not today (nothing burns a user's balance), and clamping is the
-		// conservative reading if it ever does: refuse the spend rather than
-		// let a negative wrap into a large allowance.
+		// Only reachable if a burn ever took coins out from under a lock. The
+		// two user-sourced burns — the comment pass and Redeem — both gate on
+		// disposable() first, so neither can; clamping is the conservative
+		// reading if a third ever does: refuse the spend rather than let a
+		// negative wrap into a large allowance.
 		return 0
 	}
 	return s
@@ -266,8 +267,9 @@ func SpendableOf(courtSlug string, who address) int64 {
 // WHAT A TRANSFER DOES NOT CARRY. Reputation stays with the address that earned
 // it. A claim position stays too: conviction accrues to whoever held the stake
 // over time, so buying coin buys no position. And this is a market between
-// holders, not a redemption — no GNOT is paid out, the curve stays one-way, and
-// its payment stays burned.
+// holders: no GNOT is paid out here. The court's own exit is Redeem
+// (redeem.gno), pro-rata from what the court holds; neither this nor Redeem
+// moves the curve position, and the burned share of every payment stays burned.
 func TransferCC(cur realm, courtSlug string, to address, amount int64) {
 	if !cur.IsCurrent() {
 		panic(errStaleRealm)

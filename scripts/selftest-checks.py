@@ -286,6 +286,30 @@ control("a path that sends GNOT back to a user", f"{KOURTV2}/records.gno",
 # Fail CLOSED, not open. This is the shape that let check-isolation sweep 39% of
 # the suite while reporting success: a scope list that no longer resolves must be
 # an error, never an empty scan reported as a clean one.
+# THE TWO-WAY GENERATION'S DOOR, and the three ways it can be widened. Redeem's one
+# send is sanctioned; the rule that keeps it a payout is textual, so each clause of
+# that rule gets an arm: the send pays something other than `payout`, the send
+# stands with no reserve debit above it, and a third hand writes the reserve.
+control("a redeem that pays something other than the payout", f"{KOURTV3}/redeem.gno",
+        "chain.NewCoin(gnotDenom, payout)})",
+        "chain.NewCoin(gnotDenom, amount)})",
+        "not the pro-rata payout",
+        argv=["python3", NONTRANS])
+control("a redeem that forgets to debit the reserve", f"{KOURTV3}/redeem.gno",
+        "\tc.reserve -= payout\n",
+        "",
+        "never debits the reserve",
+        argv=["python3", NONTRANS])
+control("a third hand on a court's reserve", f"{KOURTV3}/records.gno",
+        "package kourtv3\n",
+        "package kourtv3\n\nfunc Sweep(cur realm, courtSlug string) { c := mustCourt(courtSlug); c.reserve = 0 }\n",
+        "outside Buy's credit and Redeem's debit",
+        argv=["python3", NONTRANS])
+control("a path that sends GNOT back to a user (kourtv3)", f"{KOURTV3}/records.gno",
+        "package kourtv3\n",
+        "package kourtv3\n\nfunc Payout(cur realm, to address) { banker.NewBanker(banker.BankerTypeRealmSend, cur).SendCoins(cur.Address(), to, nil) }\n",
+        "GNOT leaves the realm",
+        argv=["python3", NONTRANS])
 control("a guard that lost the tree it watches", NONTRANS,
         'REALMS = ["kourtv1", "kourtv2", "kourtv3"]',
         'REALMS = ["kourtv9_moved"]',

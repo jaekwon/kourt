@@ -82,6 +82,10 @@ LIVE_ALLOWED = {
     # THE one weight expression, plus the one ceiling the dispute lane supplies.
     # Arm 4 pins that these are the only two and that nothing else recomputes them.
     ("kourtv3", "voteweight.gno"): 2,
+    # redeemQuote reads TotalSupply ONCE for both Redeem and RedeemValue: the
+    # pro-rata denominator is the live ledger total by design (TWOWAY.md), and
+    # redeem.gno computes no tally and no bar. One read, shared, pinned.
+    ("kourtv3", "redeem.gno"): 1,
     ("governor", "governor.gno"): 2,  # render only
 }
 
@@ -424,7 +428,15 @@ COIN_OUT = re.compile(r"^(?!\s*//).*\b" + RECV + r"\.coin\.(?:Transfer|TransferF
 # would start counting as a holder outflow.
 ESCROW_SRC = re.compile(RECV + r"\.coin\.(?:Transfer|Burn)\(" + RECV + r"\.escrow")
 GATE = re.compile(r"must(?:Spendable|Stakable)\(")
-COIN_OUT_N = 8  # see the audit above
+COIN_OUT_N = 9  # see the audit above
+# 8 -> 9: redeem.gno's Redeem — the second user-sourced Burn, and the first that
+# pays GNOT for what it destroys. RE-DERIVED by listing the nine: deposit+fee at
+# openClaim, the answer bond, the dispute bond, the association bond, the
+# nomination bond, TransferCC, TransferFromCC, BuyCommentPass's burn, and
+# Redeem's burn. Gated by mustSpendable on the line above it, exactly as the
+# comment-pass burn is; a Redeem that lost that line would cash a stake or an
+# open vote out through the court, which is the rented ballot this whole guard
+# family exists to price.
 # 9 -> 8: OpenFlag's flag bond. It moved a flagger's own CC into the escrow behind
 # mustSpendable, and it went with the quality lane. RE-DERIVED by listing the eight
 # that remain rather than by decrementing: deposit+fee at OpenClaim, the answer bond,
