@@ -20,7 +20,7 @@ IT ALSO GUARDS THE PURE PACKAGES, because an audit found the guard proved less
 than it claimed. `p/grc20votes` keeps a nil-clock fallback to `ChainHeight()` so
 other realms can use it unchanged — which means a ledger built with `NewLedger`
 instead of `NewLedgerWithClock` reads REAL height while the claims, twap rings
-and checkpoints in the same transaction read fabricated height. Today kourtv2
+and checkpoints in the same transaction read fabricated height. Today kourtv3
 constructs exactly one ledger and passes a clock; that was convention, not a
 guard. It is a guard now.
 """
@@ -29,7 +29,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 PURE = ROOT / "p"
 SHIM_FILES = {"clock.gno", "testclock.gno"}
 # The one sanctioned raw read outside the realm: the ledger's documented
@@ -97,7 +97,7 @@ def main():
             continue
         for m in hits:
             line = code[:m.start()].count("\n") + 1
-            offenders.append((f"r/kourtv2/{f.name}", f"line {line}"))
+            offenders.append((f"r/kourtv3/{f.name}", f"line {line}"))
 
     # Per-file, not a total. clock.gno DEFINES heightNow(); if it stops reading
     # the chain then the shim is reading nothing and every "clean" scan below is
@@ -132,7 +132,7 @@ def main():
                 offenders.append((f.name, f'aliases chain/runtime as {m.group(1)!r},'
                                           f" which defeats this scan"))
 
-    # --- kourtv2 must never build a clockless ledger ------------------------
+    # --- kourtv3 must never build a clockless ledger ------------------------
     for f in sorted(REALM.glob("*.gno")):
         if f.name.endswith("_test.gno") or f.name.endswith("_filetest.gno"):
             continue

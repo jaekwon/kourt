@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 
 # A write that can change who is in a set. `cm.m` is deliberately NOT here: the
 # THRESHOLD moving is handled by its own clear in SetPurgeThreshold for the global

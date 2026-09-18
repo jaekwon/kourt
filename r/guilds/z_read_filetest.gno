@@ -7,7 +7,7 @@ package readguilds
 // The defect that budget guards against is a query that lazily ALLOCATES: the
 // object is thrown away with the query and the only symptom is storage that
 // grows on reads, months later, under load. Two of those had already happened in
-// kourtv2 and both were found by hand rather than by a gate.
+// kourtv3 and both were found by hand rather than by a gate.
 //
 // It matters more here than the size of this realm suggests. kourt.xyz asks
 // GuildOf for every court on every reconcile, forever, for courts that have

@@ -5,7 +5,7 @@
 // grc20reg.MustGet, which type-asserts *grc20.Token — a pointer to a concrete
 // struct whose ledger the token's own realm holds. A court coin is not that
 // type: it is a grc20votes.Ledger, whose write methods take the acting address
-// rather than reading it, precisely so that kourtv2 can gate every move on
+// rather than reading it, precisely so that kourtv3 can gate every move on
 // spendable(). The two cannot be bridged by wrapping the type, because the
 // registry stores the struct pointer and asserts it, so no adapter can satisfy it.
 //
@@ -30,11 +30,11 @@
 //	Wrap(slug, n) — pulls n CC into escrow, mints n wCC to you.
 //	Unwrap(slug, n) — burns n wCC, returns n CC.
 //
-// WHAT THIS REALM IS TRUSTED WITH: nothing, by kourtv2. It holds only coin users
+// WHAT THIS REALM IS TRUSTED WITH: nothing, by kourtv3. It holds only coin users
 // hand it, and it moves that coin through the same ApproveCC/TransferFromCC that
 // any other holder would use — every guard, including mustSpendable on the owner,
-// applies to it unchanged. kourtv2 does not import this package and has no
-// knowledge of it. A better wrapper can be written and used without kourtv2
+// applies to it unchanged. kourtv3 does not import this package and has no
+// knowledge of it. A better wrapper can be written and used without kourtv3
 // changing, and a bug in this realm cannot corrupt court state; it can only
 // mismanage the escrow of holders who opted in.
 //
@@ -80,18 +80,18 @@ import (
 	"gno.land/p/nt/seqid/v0"
 	ufmt "gno.land/p/nt/ufmt/v0"
 	"gno.land/r/nt/grc20reg/v0"
-	"gno.land/r/kourt/kourtv2"
+	"gno.land/r/kourt/kourtv3"
 )
 
-// coinDecimals mirrors kourtv2's, which fixes every court coin's shape. A
+// coinDecimals mirrors kourtv3's, which fixes every court coin's shape. A
 // wrapped coin that reported a different scale would price wrong everywhere it
-// was quoted, so this is pinned by a test against kourtv2's own reader rather
+// was quoted, so this is pinned by a test against kourtv3's own reader rather
 // than trusted to stay in step.
 const coinDecimals = 6
 
 // maxWrappableSlug is 10, and it is grc20's symbol bound minus the prefix.
 //
-// grc20.MaxSymbolLen is 11. kourtv2 chose maxSlugLen = 11 for exactly that
+// grc20.MaxSymbolLen is 11. kourtv3 chose maxSlugLen = 11 for exactly that
 // reason — upper(slug) is the court coin's symbol and had to fit. The wrapped
 // symbol needs one more character for the "w", so it fits only for slugs of 10
 // or fewer, and a court whose slug uses the full 11 CANNOT be wrapped.
@@ -111,7 +111,7 @@ const maxWrappableSlug = 10
 //
 // MEASURED, on the shipped tree. Wrapped coin sits in this realm's address, which
 // no key can vote — this package exposes only Enable, Wrap and Unwrap — while
-// kourtv2's `votable` nets out only c.escrow. So every unit wrapped stays in the
+// kourtv3's `votable` nets out only c.escrow. So every unit wrapped stays in the
 // DENOMINATOR of the supply-denominated bars and leaves every numerator. Sinking a
 // fraction f of votable and asking whether the whole remaining electorate voting as
 // one still clears each bar:
@@ -178,7 +178,7 @@ const maxWrappableSlug = 10
 // Moving the bar by wrapping and holding weight at that bar's epoch are mutually
 // exclusive, and the vote floor is what makes them so.
 //
-// The real objection is ISOLATION. Netting means kourtv2 nets a balance held at
+// The real objection is ISOLATION. Netting means kourtv3 nets a balance held at
 // THIS realm's address, so every safety bar in every court would depend on this
 // package being correct — inverting the property the header opens with, that a bug
 // here "cannot corrupt court state; it can only mismanage the escrow of holders who
@@ -224,7 +224,7 @@ func Enable(cur realm, slug string) string {
 	if !cur.IsCurrent() {
 		panic("ccwrap: stale realm; call through a crossing function")
 	}
-	if !kourtv2.Exists(slug) {
+	if !kourtv3.Exists(slug) {
 		panic("ccwrap: no such court: " + slug)
 	}
 	if wraps.Has(slug) {
@@ -241,7 +241,7 @@ func Enable(cur realm, slug string) string {
 	// reading a pool can tell what it is a claim on. The w- prefix is what says
 	// it is the claim and not the coin: the two are not interchangeable, since
 	// only the unwrapped one can stake.
-	name := "Wrapped " + kourtv2.CourtName(slug)
+	name := "Wrapped " + kourtv3.CourtName(slug)
 	// The same arithmetic the slug gets above, for the same stated reason. A court
 	// name may be 100 characters and this prepends eight, where grc20 allows 64 —
 	// so without this a long-named court aborted inside NewToken behind a message
@@ -265,7 +265,7 @@ func Enable(cur realm, slug string) string {
 }
 
 // wrappedSymbol is "w" + the court's own symbol, which is its upper-cased slug.
-// Injective because kourtv2's slugs are injective and it keeps hyphens: without
+// Injective because kourtv3's slugs are injective and it keeps hyphens: without
 // that, "ab-c" and "abc" would produce one symbol and therefore one registry
 // key, and the second court could never be enabled.
 func wrappedSymbol(slug string) string { return "w" + strings.ToUpper(slug) }
@@ -277,11 +277,11 @@ func WrappableSlug(slug string) bool { return len(slug) > 0 && len(slug) <= maxW
 
 // Wrap escrows `amount` court coin and mints you the same amount of wrapped.
 //
-// Requires an allowance: call kourtv2.ApproveCC(slug, <this realm's address>,
+// Requires an allowance: call kourtv3.ApproveCC(slug, <this realm's address>,
 // amount) first. That is the standard two-step, and it is not extra friction in
 // context — gnoswap requires an approve before every swap and every mint, so a
 // holder heading for a pool is already doing them. The alternative, a privileged
-// push from inside kourtv2, would mean kourtv2 importing this realm and trusting
+// push from inside kourtv3, would mean kourtv3 importing this realm and trusting
 // it; the allowance is what buys this package its complete lack of privilege.
 //
 // MINT AFTER THE PULL, always. The pull can fail — no allowance, or the owner
@@ -299,7 +299,7 @@ func Wrap(cur realm, slug string, amount int64) {
 	w := mustWrapped(slug)
 	who := cur.Previous().Address()
 	mustWrapRoom(slug, cur.Address(), amount)
-	kourtv2.TransferFromCC(cross(cur), slug, who, cur.Address(), amount)
+	kourtv3.TransferFromCC(cross(cur), slug, who, cur.Address(), amount)
 	if err := w.led.Mint(who, amount); err != nil {
 		panic(err)
 	}
@@ -324,7 +324,7 @@ func Unwrap(cur realm, slug string, amount int64) {
 	if err := w.led.Burn(who, amount); err != nil {
 		panic(err)
 	}
-	kourtv2.TransferCC(cross(cur), slug, who, amount)
+	kourtv3.TransferCC(cross(cur), slug, who, amount)
 }
 
 // TokenKey is the grc20reg key, which is also the token path gnoswap wants.
@@ -345,19 +345,19 @@ func Enabled(slug string) bool { return wraps.Has(slug) }
 
 // WrappedSupply is how much court coin this realm holds in escrow for a court,
 // which by construction equals the wrapped token's total supply. Exposed as one
-// number read off the wrapped side; the escrow side is kourtv2's BalanceOf on
+// number read off the wrapped side; the escrow side is kourtv3's BalanceOf on
 // this realm's address, and a test asserts they agree.
 // liveVotable is supply net of the escrow, read NOW rather than at a sealed epoch.
 //
-// kourtv2.VotableSupply looks like the reader for this and is the wrong one: it
+// kourtv3.VotableSupply looks like the reader for this and is the wrong one: it
 // returns (0,0,0) until the second epoch and otherwise reports the last SEALED
 // epoch. Both make the cap refuse everything on a young court — measured, it
 // refused an ordinary 1 CC wrap in ccwrap's own fixture, because votable read 0.
 // A cap on a BALANCE has to be quoted on balances; a sealed reading would also let
 // a same-epoch burst overshoot the bound it exists to hold.
 func liveVotable(slug string) int64 {
-	v := kourtv2.CoinSupply(slug) -
-		kourtv2.CoinBalanceOf(slug, kourtv2.CourtEscrow(slug))
+	v := kourtv3.CoinSupply(slug) -
+		kourtv3.CoinBalanceOf(slug, kourtv3.CourtEscrow(slug))
 	if v < 0 {
 		return 0
 	}
@@ -368,7 +368,7 @@ func liveVotable(slug string) int64 {
 // court's votable pool.
 func mustWrapRoom(slug string, vault address, amount int64) {
 	room := liveVotable(slug) * maxWrapBps / 10000
-	held := kourtv2.CoinBalanceOf(slug, vault)
+	held := kourtv3.CoinBalanceOf(slug, vault)
 	if held+amount > room {
 		panic("ccwrap: that would leave too little of the court's coin able to " +
 			"vote — a claim staking a third of the court needs the other two " +
@@ -382,27 +382,27 @@ func mustWrapRoom(slug string, vault address, amount int64) {
 // holder refused by mustWrapRoom deserves a number rather than a rule.
 //
 // A COURT-LEVEL BOUND, NOT A PERSONAL ALLOWANCE, and the difference bites. Wrap
-// goes on to call kourtv2.TransferFromCC, which gates on mustSpendable, which nets
+// goes on to call kourtv3.TransferFromCC, which gates on mustSpendable, which nets
 // out BOTH the stake lock and the vote lock. So a holder who has staked, or who has
 // voted in a question that has not resolved, can be refused an amount this function
 // says is available — for a reason it never mentions. Whoever is deciding how much
-// to wrap wants the lesser of this and kourtv2.DisposableOf, which is the figure
+// to wrap wants the lesser of this and kourtv3.DisposableOf, which is the figure
 // mustSpendable actually enforces.
 //
 // This used to subtract VoteLockedOf from the stake-only figure, which DOUBLE-COUNTS
 // the overlap and understates the room by whichever lock is smaller. The two locks
 // combine with MAX, not SUM — staked coin still votes, so one pile honours both
 // commitments — and subtracting them in series is precisely the arithmetic that
-// decision rejects. kourtv2.VoteLockedOf still quotes the vote half on its own, for a
+// decision rejects. kourtv3.VoteLockedOf still quotes the vote half on its own, for a
 // client that wants to say which limit binds.
 //
 // Not folded into one number on purpose: this realm has no business deciding which
 // of a holder's several commitments is the interesting one, and a single figure
 // would hide which limit is actually binding — the same complaint mustSpendable's
-// split panic messages answer on the kourtv2 side.
+// split panic messages answer on the kourtv3 side.
 func WrapRoom(slug string) int64 {
 	room := liveVotable(slug)*maxWrapBps/10000 -
-		kourtv2.CoinBalanceOf(slug, chain.PackageAddress(realmPath))
+		kourtv3.CoinBalanceOf(slug, chain.PackageAddress(realmPath))
 	if room < 0 {
 		return 0
 	}
@@ -424,7 +424,7 @@ func Render(path string) string {
 		// Render takes attacker-controlled input, so a path naming no wrapped
 		// court is a page that says so -- not a panic. mustWrapped is the right
 		// shape for a caller that has already checked; Render has not.
-		// kourtv2's render arms learned the same rule: eight of them called
+		// kourtv3's render arms learned the same rule: eight of them called
 		// must* on a raw path segment and threw where their siblings answered.
 		if wraps.Get(path) == nil {
 			return "## Not found\nNo wrapped coin for that court."

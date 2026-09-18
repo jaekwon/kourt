@@ -85,7 +85,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 
 # Every function that may take CC out of a holder's balance, and the test that
 # proves it refuses to dip into a lock. Adding a spend path means adding a line
@@ -169,7 +169,7 @@ def main():
 
     files = sources()
     if not files:
-        print("check-spend-paths: no kourtv2 sources found; the realm moved.",
+        print("check-spend-paths: no kourtv3 sources found; the realm moved.",
               file=sys.stderr)
         return 1
 

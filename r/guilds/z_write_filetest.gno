@@ -17,15 +17,15 @@ package writeguilds
 
 import (
 	"gno.land/r/kourt/guilds"
-	"gno.land/r/kourt/kourtv2"
+	"gno.land/r/kourt/kourtv3"
 )
 
 func main(cur realm) {
 	// The courts have to exist and this caller has to moderate them — the first
 	// court's creator is its admin, and IsCourtMod answers for the admin before
 	// any moderator set materialises.
-	kourtv2.StartCourt(cross(cur), "covid", "COVID")
-	kourtv2.StartCourt(cross(cur), "atomone", "AtomOne")
+	kourtv3.StartCourt(cross(cur), "covid", "COVID")
+	kourtv3.StartCourt(cross(cur), "atomone", "AtomOne")
 	guilds.Set(cross(cur), "covid", "1550279172088143883")
 	guilds.Set(cross(cur), "atomone", "1478455953715236886")
 	println("covid:  ", guilds.GuildOf("covid"))

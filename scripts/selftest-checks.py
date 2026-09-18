@@ -173,7 +173,7 @@ RENDERTEXT = "scripts/check-render-text.py"
 ABORTASRT = "scripts/check-abort-assertions.py"
 PATHS = "scripts/check-paths.py"
 ANCHORS = "scripts/check-mutation-anchors.py"
-MUTS = "scripts/mutations-kourtv2.json"
+MUTS = "scripts/mutations-kourtv3.json"
 HSHIM = "scripts/check-height-shim.py"
 NODELEG = "scripts/check-nodelegate.py"
 WEBCONST = "scripts/check-web-constants.py"
@@ -189,6 +189,7 @@ INERTFLAGS = "scripts/check-inert-flags.py"
 MINTERGNO = "r/govern/minter.gno"
 MUTSCOPE = "scripts/check-mutation-scope.py"
 CLAIMGNO = "r/kourtv2/claim.gno"
+CLAIMGNO3 = "r/kourtv3/claim.gno"
 MUTATEPY = "scripts/mutate.py"
 CLOCKGNO = "r/kourtv2/clock.gno"
 GOVGNO = "p/governor/governor.gno"
@@ -210,6 +211,18 @@ TCLOCK = "r/kourtv2/testclock.gno"
 SEEDED = "harness/gnoland/testdata/kourtv2_usedrealm_seeded.txtar"
 GOVERN = "r/govern"
 KOURTV2 = "r/kourtv2"
+# THE THIRD GENERATION. Arms whose guard is scoped to ONE realm plant into the
+# realm that guard now watches — kourtv3 — or the plant lands where nothing looks
+# and the arm is SILENT, the exact failure this file exists to catch. Arms whose
+# guard scans the whole tree, or that keep kourtv2's deployed-mirror rules
+# (check-getcoins, check-nontransferable's v2 rows, the storage and isolation
+# suites), keep planting into kourtv2 on purpose.
+KOURTV3 = "r/kourtv3"
+BUY3 = "r/kourtv3/buy.gno"
+STAKE3 = "r/kourtv3/stake.gno"
+COURT3 = "r/kourtv3/court.gno"
+CLOCKF3 = "r/kourtv3/clock.gno"
+TCTEST3 = "r/kourtv3/testclock_test.gno"
 GOVERNORDIR = "p/governor"
 CCWRAP = "r/ccwrap"
 GRC20VOTESDIR = "p/grc20votes"
@@ -274,7 +287,7 @@ control("a path that sends GNOT back to a user", f"{KOURTV2}/records.gno",
 # the suite while reporting success: a scope list that no longer resolves must be
 # an error, never an empty scan reported as a clean one.
 control("a guard that lost the tree it watches", NONTRANS,
-        'REALMS = ["kourtv1", "kourtv2"]',
+        'REALMS = ["kourtv1", "kourtv2", "kourtv3"]',
         'REALMS = ["kourtv9_moved"]',
         "measuring nothing",
         argv=["python3", NONTRANS])
@@ -283,7 +296,7 @@ print("\ncheck-epoch-coherence")
 # TWO ABSENCE/UNIQUENESS CLAIMS the source states and nothing checked until now.
 # Both plants are static-only: this guard reads .gno as text, so a plant that
 # changes a call's meaning without regard for the body is legitimate here.
-control("a position is removed from the stake index", f"{KOURTV2}/stakeindex.gno",
+control("a position is removed from the stake index", f"{KOURTV3}/stakeindex.gno",
         "if pv := cs.stakers.Get(posKey(who, side)); pv != nil {",
         "if pv := cs.stakers.Remove(posKey(who, side)); pv != nil {",
         "position-removed",
@@ -334,7 +347,7 @@ control("a second writer of the proposal state", f"{GOVERNORDIR}/governor.gno",
 # gates is a coin.Transfer to that same address. Anchored on the deposit refund
 # rather than the fee refund on line 227, which is the same shape — cs.deposit
 # makes it unique.
-control("a money path reading board state", f"{KOURTV2}/openrewards.gno",
+control("a money path reading board state", f"{KOURTV3}/openrewards.gno",
         "\t\tc.coin.Transfer(c.escrow, cs.author, cs.deposit)",
         "\t\tif postLevel(c, cs.author) > 0 {\n"
         "\t\t\tc.coin.Transfer(c.escrow, cs.author, cs.deposit)\n\t\t}",
@@ -346,7 +359,7 @@ control("a money path reading board state", f"{KOURTV2}/openrewards.gno",
 # commitment — and Unstake is the canonical release path: gating it means a
 # purged court strands an answered claim's stakers, which MODERATION.md §2
 # forbids outright.
-control("the purged-court gate on a release path", f"{KOURTV2}/stake.gno",
+control("the purged-court gate on a release path", f"{KOURTV3}/stake.gno",
         "func Unstake(cur realm, courtSlug string, claimID uint64, side int, amount int64) {\n"
         "\tif !cur.IsCurrent() {",
         "func Unstake(cur realm, courtSlug string, claimID uint64, side int, amount int64) {\n"
@@ -354,7 +367,7 @@ control("the purged-court gate on a release path", f"{KOURTV2}/stake.gno",
         "\tif !cur.IsCurrent() {",
         "purged-gate-on-a-release-path",
         argv=["python3", EPOCHCOH])
-control("a second reader of the lock tree", f"{KOURTV2}/lock.gno",
+control("a second reader of the lock tree", f"{KOURTV3}/lock.gno",
         "\tc.locked.Set(string(who), l-amount)",
         "\tc.locked.Get(string(who))",
         "second-lock-reader",
@@ -376,7 +389,7 @@ control("a second reader of the lock tree", f"{KOURTV2}/lock.gno",
 # sealed denominator into a LIVE one (PastTotal(at) -> TotalSupply()). TotalSupply
 # is in the LIVE pattern, so arm 1 fires — and this is the exact defect the note
 # above describes, a live figure measured against a frozen bar.
-control("a live weight read reached a tally file", f"{KOURTV2}/dispute.gno",
+control("a live weight read reached a tally file", f"{KOURTV3}/dispute.gno",
         "\tsupply := c.coin.PastTotal(at)",
         "\tsupply := c.coin.TotalSupply()",
         "live weight read(s) in a file that decides by weight",
@@ -388,7 +401,7 @@ control("a live weight read reached a tally file", f"{KOURTV2}/dispute.gno",
 #
 # The plant adds a SECOND sealed read at a different instant (at-1) beside the
 # existing one, which is arm 2's subject exactly: one function, two epochs.
-control("one function reading two different epochs", f"{KOURTV2}/dispute.gno",
+control("one function reading two different epochs", f"{KOURTV3}/dispute.gno",
         "\tat := c.coin.Epoch() - 1\n\tsupply := c.coin.PastTotal(at)",
         "\tat := c.coin.Epoch() - 1\n"
         "\tsupply := c.coin.PastTotal(at) + c.coin.PastTotal(at-1)",
@@ -415,13 +428,13 @@ control("a supplied cap that raises instead of lowering",
 # the floor's comparison reversed, arm 1 still counts two BalanceOf reads in
 # voteweight.gno and says nothing. Only the SHAPE check stands between a ceiling
 # and a floor. Measured: [one-weight] fires here and [live-census] does not.
-control("the vote floor's comparison reversed", f"{KOURTV2}/voteweight.gno",
+control("the vote floor's comparison reversed", f"{KOURTV3}/voteweight.gno",
         "if held := c.coin.BalanceOf(who); held < w {",
         "if held := c.coin.BalanceOf(who); held > w {",
         "[one-weight]", argv=["python3", EPOCHCOH])
 # And the other half: one expression, charged by three lanes and quoted to the
 # elector. A second definition in the name family fails closed.
-control("a second vote-weight definition", f"{KOURTV2}/voteweight.gno",
+control("a second vote-weight definition", f"{KOURTV3}/voteweight.gno",
         "func voteCap(c *Court, who address) int64 {",
         "func voteCap2(c *Court, who address) int64 { return voteCap(c, who) }\n\n"
         "func voteCap(c *Court, who address) int64 {",
@@ -430,7 +443,7 @@ control("a second vote-weight definition", f"{KOURTV2}/voteweight.gno",
 # way for a claim to end leaves those votes locked forever and in silence — the
 # predicate just keeps answering "still open" about a claim that is over. Nothing
 # else in the tree asks, which is why the writers are counted.
-control("a fourth way for a claim to end", f"{KOURTV2}/session.gno",
+control("a fourth way for a claim to end", f"{KOURTV3}/session.gno",
         "\tcs.verdictAt = heightNow()",
         "\tcs.verdictAt = heightNow()\n\tcs.verdictAt = heightNow()",
         "[terminal]", argv=["python3", EPOCHCOH])
@@ -438,7 +451,7 @@ control("a fourth way for a claim to end", f"{KOURTV2}/session.gno",
 # a helper with a reassuring name — reaching for it is the natural move when a new
 # path hits the lock and the author decides the lock is being unhelpful. Planting
 # exactly that.
-control("a second path exempted from the vote lock", f"{KOURTV2}/claim.gno",
+control("a second path exempted from the vote lock", f"{KOURTV3}/claim.gno",
         "\t\tmustSpendable(c, who, dep+fee)",
         "\t\tmustStakable(c, who, dep+fee)",
         "[lock-exempt]", argv=["python3", EPOCHCOH])
@@ -451,7 +464,7 @@ control("a second path exempted from the vote lock", f"{KOURTV2}/claim.gno",
 # 112-113: the same mustSpendable(c, who, bond) above the same
 # c.coin.Transfer(who, c.escrow, bond). A one-for-one move, so the arm plants the
 # same defect it always did — the dispute bond instead of the flag bond.
-control("a coin outflow with its gate removed", f"{KOURTV2}/dispute.gno",
+control("a coin outflow with its gate removed", f"{KOURTV3}/dispute.gno",
         "\tmustSpendable(c, who, bond)\n\tc.coin.Transfer(who, c.escrow, bond)",
         "\tc.coin.Transfer(who, c.escrow, bond)",
         "[ungated-outflow]", argv=["python3", EPOCHCOH])
@@ -470,7 +483,7 @@ control("a coin outflow with its gate removed", f"{KOURTV2}/dispute.gno",
 # so matching the tag would let either pass on the other's complaint. Probed
 # both ways: this plant produces "rather than `who`" and NOT "binds `who` to",
 # and the one below produces "binds `who` to" and NOT "rather than `who`".
-control("a lock row created for a third party", f"{KOURTV2}/dispute.gno",
+control("a lock row created for a third party", f"{KOURTV3}/dispute.gno",
         "lockVote(c, who, voteLockDispute,",
         "lockVote(c, cs.author, voteLockDispute,",
         "rather than `who`", argv=["python3", EPOCHCOH])
@@ -490,16 +503,16 @@ control("a lock row created for a third party", f"{KOURTV2}/dispute.gno",
 # added and LOCKVOTE_CALLS_N moves, this arm goes quiet and the selftest says so —
 # which is the right failure, since a new vote-locking lane is exactly the thing
 # the guard's message says "has to be argued".
-control("a fourth lane locking votes", f"{KOURTV2}/dispute.gno",
+control("a fourth lane locking votes", f"{KOURTV3}/dispute.gno",
         "\tlockVote(c, who, voteLockDispute, int64(claimID), cs.proposalID, dw)",
         "\tlockVote(c, who, voteLockDispute, int64(claimID), cs.proposalID, dw)\n"
         "\tlockVote(c, who, voteLockDispute, int64(claimID), cs.proposalID, dw)",
         "vote-lock site(s), expected 2", argv=["python3", EPOCHCOH])
-control("`who` rebound away from the caller", f"{KOURTV2}/dispute.gno",
+control("`who` rebound away from the caller", f"{KOURTV3}/dispute.gno",
         "\tlockVote(c, who, voteLockDispute,",
         "\twho = cs.author\n\tlockVote(c, who, voteLockDispute,",
         "binds `who` to", argv=["python3", EPOCHCOH])
-control("a locking helper passed a foreign address", f"{KOURTV2}/modvote.gno",
+control("a locking helper passed a foreign address", f"{KOURTV3}/modvote.gno",
         "\tapprove(cur.Previous().Address(), courtSlug, 0, true)",
         "\tapprove(cur.Previous().Address(), courtSlug, 0, true)\n"
         "\tapprove(c.treasury, courtSlug, 0, true)",
@@ -507,11 +520,11 @@ control("a locking helper passed a foreign address", f"{KOURTV2}/modvote.gno",
 # ARM 12's controls. Two isolate the sub-checks — the receiver and the count — and the
 # third is the mistake as it would actually arrive: a storage saving added inside the
 # ledger, trimming the supply series that every bar in the realm is read from.
-control("a Trim pointed at another archive", f"{KOURTV2}/stakeseries.gno",
+control("a Trim pointed at another archive", f"{KOURTV3}/stakeseries.gno",
         'c.csArch.Trim(csKey(cs.id, "nh"), keep, trimBudget)',
         'c.coinArch.Trim(csKey(cs.id, "nh"), keep, trimBudget)',
         "the only archive safe to trim is", argv=["python3", EPOCHCOH])
-control("a third Trim call site", f"{KOURTV2}/stakeseries.gno",
+control("a third Trim call site", f"{KOURTV3}/stakeseries.gno",
         '\tc.csArch.Trim(csKey(cs.id, "nh"), keep, trimBudget)',
         '\tc.csArch.Trim(csKey(cs.id, "nh"), keep, trimBudget)\n'
         '\tc.csArch.Trim(csKey(cs.id, "xh"), keep, trimBudget)',
@@ -527,7 +540,7 @@ control("the coin's own supply series trimmed to save storage",
 # fresh restatement appearing. The middle one is why the arm counts exactly rather than
 # checking presence — presence was tried and passes on it, which is the failure the arm
 # exists for.
-control("the release rule reworded in the code", f"{KOURTV2}/votelock.gno",
+control("the release rule reworded in the code", f"{KOURTV3}/votelock.gno",
         "some question is open now  OR  these weights carry forward",
         "the tally has not been superseded",
         "votelock.gno states the quality release clause 0", argv=["python3", EPOCHCOH])
@@ -572,7 +585,7 @@ control("a fresh restatement of the release rule", "VOTEFLOOR.md",
 # VoteLockedOf from it understates the room because the locks combine with MAX not SUM.
 # The prose that explains the figure correctly carries no formula and is the bystander:
 # it sits in lock.gno right now and the clean run does not flag it.
-control("SpendableOf quoted as the movable amount", f"{KOURTV2}/lock.gno",
+control("SpendableOf quoted as the movable amount", f"{KOURTV3}/lock.gno",
         "// min(AllowanceCC, DisposableOf).",
         "// min(AllowanceCC, SpendableOf).",
         "[spendable-as-movable]", argv=["python3", EPOCHCOH])
@@ -585,8 +598,8 @@ control("arm 9 losing the trees it watches", EPOCHCOH,
         'CCWRAP = ROOT / "r" / "ccwrap_moved"',
         "measuring nothing", argv=["python3", EPOCHCOH])
 control("a guard that lost the tree it watches", EPOCHCOH,
-        'KOURTV2 = ROOT / "r" / "kourtv2"',
-        'KOURTV2 = ROOT / "r" / "kourtv9_moved"',
+        'KOURTV3 = ROOT / "r" / "kourtv3"',
+        'KOURTV3 = ROOT / "r" / "kourtv9_moved"',
         "measuring nothing", argv=["python3", EPOCHCOH])
 
 # ARM 13, the mint census. Arm 7 pins coin LEAVING a holder; nothing pinned coin
@@ -594,7 +607,7 @@ control("a guard that lost the tree it watches", EPOCHCOH,
 # ceiling cannot see, because emittedTotal feeds d_eff and only mintEmission updates
 # it while the two curve paths advance `minted` instead. Nothing goes wrong
 # arithmetically and the recipient's balance is correct, so only a census notices.
-control("a mint nothing accounts for", f"{KOURTV2}/emission.gno",
+control("a mint nothing accounts for", f"{KOURTV3}/emission.gno",
         "func mintEmission(c *Court, to address, amount int64) {",
         "func selfTestLeakMint(c *Court, to address, amount int64) {\n"
         "\tc.coin.Mint(to, amount)\n}\n\n"
@@ -626,7 +639,7 @@ control("the mint scan hardcoding one receiver", EPOCHCOH,
 # did. With `.minted +=` on the line above, the per-file check is satisfied and the
 # only thing left to notice is that the realm now has four mint sites where the
 # census says three.
-control("a mint the census cannot see because of where it sits", f"{KOURTV2}/emission.gno",
+control("a mint the census cannot see because of where it sits", f"{KOURTV3}/emission.gno",
         "func mintEmission(c *Court, to address, amount int64) {",
         "func selfTestMidLineMint(c *Court, to address, amount int64) {\n"
         "\tc.minted += amount\n"
@@ -641,26 +654,26 @@ control("a mint the census cannot see because of where it sits", f"{KOURTV2}/emi
 # pinning is that every verb still carries them, and that a FIFTH verb cannot arrive
 # without carrying them — a case no corpus row can cover, because the code does not
 # exist yet.
-control("a purge verb with no category-code gate", f"{KOURTV2}/moderation.gno",
+control("a purge verb with no category-code gate", f"{KOURTV3}/moderation.gno",
         "func PurgeCourt(cur realm, courtSlug string, categoryCode string) {\n"
         "\tif !cur.IsCurrent() {\n\t\tpanic(errStaleRealm)\n\t}\n"
         "\twho := cur.Previous().Address()\n"
         "\td := ensureGlobalDAO()\n"
         "\tif !d.members.Has(who.String()) {\n"
-        "\t\tpanic(\"kourtv2: only a global DAO member may purge\")\n\t}\n"
+        "\t\tpanic(\"kourtv3: only a global DAO member may purge\")\n\t}\n"
         "\tmustCategoryCode(categoryCode)\n",
         "func PurgeCourt(cur realm, courtSlug string, categoryCode string) {\n"
         "\tif !cur.IsCurrent() {\n\t\tpanic(errStaleRealm)\n\t}\n"
         "\twho := cur.Previous().Address()\n"
         "\td := ensureGlobalDAO()\n"
         "\tif !d.members.Has(who.String()) {\n"
-        "\t\tpanic(\"kourtv2: only a global DAO member may purge\")\n\t}\n",
+        "\t\tpanic(\"kourtv3: only a global DAO member may purge\")\n\t}\n",
         "PurgeCourt does not carry mustCategoryCode",
         argv=["python3", EPOCHCOH])
 # The gate that matters most, on the verb furthest from the tests.
-control("a purge verb with no authority gate", f"{KOURTV2}/folders.gno",
-        '\t\tpanic("kourtv2: only a global DAO member may purge")',
-        '\t\tpanic("kourtv2: computer says no")',
+control("a purge verb with no authority gate", f"{KOURTV3}/folders.gno",
+        '\t\tpanic("kourtv3: only a global DAO member may purge")',
+        '\t\tpanic("kourtv3: computer says no")',
         "PurgeFolder does not carry the global-DAO authority gate",
         argv=["python3", EPOCHCOH])
 # Fail CLOSED: a verb pattern that stops matching leaves the census counting nothing.
@@ -690,7 +703,7 @@ control("the purge verb pattern drifting off the code", EPOCHCOH,
 # what this pins is a SECOND placement path: code nobody has written, which no corpus row
 # can reach. A drafted queue-walking test was thrown away for catching only what those
 # rows already catch.
-control("a second entitlement placement site", f"{KOURTV2}/emission.gno",
+control("a second entitlement placement site", f"{KOURTV3}/emission.gno",
         "func enqueueSenior(c *Court, to address, amount int64, purpose string) uint64 {",
         "func selfTestPlaceSenior(c *Court, to address, amount int64) {\n"
         "\te := &entitlement{to: to, amount: amount, start: 0, purpose: \"comp\"}\n"
@@ -701,7 +714,7 @@ control("a second entitlement placement site", f"{KOURTV2}/emission.gno",
 # A cursor moved from somewhere else desynchronises the tail from the queue. Planted on
 # the META receiver, which is the spelling a second emission path would most plausibly
 # use — mc already carries mc.minted sixteen lines from here.
-control("a second reservedTail writer", f"{KOURTV2}/emission.gno",
+control("a second reservedTail writer", f"{KOURTV3}/emission.gno",
         "// rMax banks at most rMaxPeriods of the CURRENT period's budget.",
         "func selfTestBumpTail(mc *Court, n int64) {\n"
         "\tmc.reservedTail = mustAdd(mc.reservedTail, n)\n}\n\n"
@@ -721,13 +734,13 @@ print("\ncheck-nodelegate")
 # that changes, every delegatee is silently docked to their own coin while the
 # arithmetic stays coherent and every suite stays green. A hazard no test can see
 # gets a machine.
-control("kourtv2 gaining a delegation entrypoint", f"{KOURTV2}/court.gno",
+control("kourtv3 gaining a delegation entrypoint", f"{KOURTV3}/court.gno",
         "func mustCourt(",
         "func Delegate(cur realm, to address) {}\n\nfunc mustCourt(",
         "[delegates]", argv=["python3", NODELEG])
 # And the other direction: with no floor there is no asymmetry to protect, so a
 # guard still reporting success would be describing a property nothing has.
-control("the own-balance floor disappearing", f"{KOURTV2}/voteweight.gno",
+control("the own-balance floor disappearing", f"{KOURTV3}/voteweight.gno",
         "\tif held := c.coin.BalanceOf(who); held < w {\n\t\tw = held\n\t}\n",
         "",
         "[floor-count]", argv=["python3", NODELEG])
@@ -737,8 +750,8 @@ control("the ceiling ceasing to be delegation-aware", f"{GRC20VOTES}/grc20votes.
         "return a.balance",
         "may not exist", argv=["python3", NODELEG])
 control("a guard that lost the tree it watches", NODELEG,
-        'KOURTV2 = ROOT / "r" / "kourtv2"',
-        'KOURTV2 = ROOT / "r" / "kourtv9_moved"',
+        'KOURTV3 = ROOT / "r" / "kourtv3"',
+        'KOURTV3 = ROOT / "r" / "kourtv9_moved"',
         "measuring nothing", argv=["python3", NODELEG])
 
 print("\ncheck-membership-clears")
@@ -748,7 +761,7 @@ print("\ncheck-membership-clears")
 # so a mutation deleting it survives every possible test and always will. What can
 # still go wrong is a FOURTH install path that forgets to clear, which is
 # structural, so it gets a script instead of a test.
-control("a membership write that forgets to clear", f"{KOURTV2}/moderation.gno",
+control("a membership write that forgets to clear", f"{KOURTV3}/moderation.gno",
         "func ResetModSet(cur realm, courtSlug string) {",
         "func SelfTestSneakyInstall(c *Court, cm *courtMod) {\n\tcm.n = 1\n}\n\n"
         "func ResetModSet(cur realm, courtSlug string) {",
@@ -772,7 +785,7 @@ print("\ncheck-read-purity")
 # The plant does not have to COMPILE, and that is worth saying: this guard reads
 # .gno as text and never builds the realm, so turning a return type into a pointer
 # is a legitimate plant even though the body no longer matches it.
-control("an exported read that hands out a pointer", f"{KOURTV2}/folders.gno",
+control("an exported read that hands out a pointer", f"{KOURTV3}/folders.gno",
         "func FolderItems(courtSlug string, folderID uint64) []uint64 {",
         "func FolderItems(courtSlug string, folderID uint64) *[]uint64 {",
         "FolderItems returns *[]uint64",
@@ -787,12 +800,12 @@ control("an exported read that hands out a pointer", f"{KOURTV2}/folders.gno",
 # Two arms, because the two failures need opposite fixes: a pointer field is the
 # violation, and a field pattern that has drifted off the code leaves the pointer arm
 # scanning nothing and silent on a real one.
-control("a twap.Ring held in realm state by pointer", f"{KOURTV2}/claim.gno",
+control("a twap.Ring held in realm state by pointer", f"{KOURTV3}/claim.gno",
         "\toi  twap.Ring // total stake, hourly, one week",
         "\toi  *twap.Ring // total stake, hourly, one week",
         "BY POINTER",
         argv=["python3", READPURE])
-control("the Ring field pattern drifting off the code", f"{KOURTV2}/claim.gno",
+control("the Ring field pattern drifting off the code", f"{KOURTV3}/claim.gno",
         "\tyes twap.Ring // YES pool, hourly, one week",
         "\tyes twap.Circle // YES pool, hourly, one week",
         "expected 2",
@@ -801,7 +814,7 @@ control("the Ring field pattern drifting off the code", f"{KOURTV2}/claim.gno",
 # have panicked, so nothing in the suite goes red — the drift is invisible to
 # tests by construction. The control has to inject a whole read rather than edit
 # one, because every existing read is already correct.
-control("a read that allocates state", f"{KOURTV2}/modvote.gno",
+control("a read that allocates state", f"{KOURTV3}/modvote.gno",
         "func ElectionOpen(",
         "func SelfTestAllocatingRead(courtSlug string) bool {\n"
         "\tcm := ensureMod(mustCourt(courtSlug))\n\t_ = cm\n\treturn true\n}\n\n"
@@ -815,7 +828,7 @@ control("a read that allocates state", f"{KOURTV2}/modvote.gno",
 # read that called it — the allowlist was three hardcoded names and getPos was not one,
 # while being an allocate-and-persist helper of exactly the same species. This is the
 # control for that fix: plant the read, and the guard must now object.
-control("an exported read that reaches getPos", f"{KOURTV2}/stakeindex.gno",
+control("an exported read that reaches getPos", f"{KOURTV3}/stakeindex.gno",
         "func StakedSize(courtSlug string, who address) int {",
         "func StakedLeak(courtSlug string, who address) int64 {\n"
         "\tc := mustCourt(courtSlug)\n"
@@ -856,14 +869,14 @@ print("\ncheck-spend-paths")
 # was deleted rather than left to drift out of step with it. The census catches the
 # same plant, from the other side - the function is still in SPEND_PATHS and no
 # longer calls a guard.
-control("a spend path that stopped calling its guard", f"{KOURTV2}/answer.gno",
+control("a spend path that stopped calling its guard", f"{KOURTV3}/answer.gno",
         "\tmustSpendable(c, who, bond)\n",
         "",
         "no longer calls a spend guard",
         argv=["python3", SPENDPATH])
 # The arm for the NEXT path somebody adds, which is the whole reason this guard
 # exists: the suite cannot go red for a path no test names, so the census has to.
-control("a new spend path nobody censused", f"{KOURTV2}/lock.gno",
+control("a new spend path nobody censused", f"{KOURTV3}/lock.gno",
         "func TransferCC(cur realm,",
         "func SelfTestDrainCC(cur realm, courtSlug string, to address, amount int64) {\n"
         "\tc := mustCourt(courtSlug)\n"
@@ -889,8 +902,8 @@ print("\ncheck-abort-assertions")
 # nothing goes red on its own - both transfer-amount guards were unpinned for as
 # long as their tests asserted the substring "must be positive", which grc20votes'
 # own mustBePositive also satisfies. Loosening a tightened assertion is the plant.
-control("an assertion an inner layer also satisfies", f"{KOURTV2}/dispute_test.gno",
-        '"kourtv2: a dispute is already open on this claim", func() {',
+control("an assertion an inner layer also satisfies", f"{KOURTV3}/dispute_test.gno",
+        '"kourtv3: a dispute is already open on this claim", func() {',
         '"already open", func() {',
         "can be satisfied by a layer it is not testing",
         argv=["python3", ABORTASRT])
@@ -899,8 +912,8 @@ control("an assertion an inner layer also satisfies", f"{KOURTV2}/dispute_test.g
 # soon as the message is long enough to wrap - was invisible, and the guard reported
 # a clean tree while seeing neither of the two assertions this check was written
 # for. Found by ablation, not by reading. This arm plants that exact shape.
-control("a wrapped assertion the scan must still see", f"{KOURTV2}/stake_test.gno",
-        '"kourtv2: stake must be positive", func() {',
+control("a wrapped assertion the scan must still see", f"{KOURTV3}/stake_test.gno",
+        '"kourtv3: stake must be positive", func() {',
         '"must be positive",\n\t\tfunc() {',
         "can be satisfied by a layer it is not testing",
         argv=["python3", ABORTASRT])
@@ -930,7 +943,7 @@ print("\ncheck-render-text")
 # caller's sanitiser, which is the violation with teeth — sanitize.Block escapes
 # CommonMark block types 1-5 but not 6 and 7, so a <form> in a body would only be
 # CONTAINED, and gnoweb runs no HTML sanitiser after the realm.
-control("a render gate that stops sanitising", f"{KOURTV2}/modrender.gno",
+control("a render gate that stops sanitising", f"{KOURTV3}/modrender.gno",
         "\treturn sanitize.Block(body)",
         "\treturn body",
         "does not apply sanitize.Block",
@@ -953,7 +966,7 @@ control("a wrap page that stops sanitising", f"{CCWRAP}/ccwrap.gno",
 
 control("a new foreign reader of raw court text", f"{CCWRAP}/ccwrap.gno",
         "func Enabled(slug string) bool { return wraps.Has(slug) }",
-        "func Enabled(slug string) bool { _ = kourtv2.CourtName(slug); return wraps.Has(slug) }",
+        "func Enabled(slug string) bool { _ = kourtv3.CourtName(slug); return wraps.Has(slug) }",
         "not in FOREIGN_TEXT_READERS",
         argv=["python3", RENDERTEXT])
 
@@ -983,7 +996,7 @@ print("\ncheck-mutant-collisions")
 def _live_row(corpus):
     """The first row whose `find` still matches exactly once in its file."""
     for row in corpus:
-        p = os.path.join(REPO, "r", row.get("pkg", "kourtv2"), row["file"])
+        p = os.path.join(REPO, "r", row.get("pkg", "kourtv3"), row["file"])
         if os.path.exists(p) and open(p, encoding="utf-8").read().count(row["find"]) == 1:
             return row
     raise SystemExit("selftest: no mutation row in the corpus still applies — "
@@ -1085,7 +1098,7 @@ try:
     _corpus4 = json.load(open(_bk4))
     # Spelled out rather than derived from the corpus, for the same reason the
     # parse plant above is: it must not quietly become buildable.
-    _orph = {"pkg": "kourtv2", "file": "boardlegal.gno",
+    _orph = {"pkg": "kourtv3", "file": "boardlegal.gno",
              "label": "SELFTEST orphaned-variable row",
              "find": "\tif !fire {\n\t\treturn\n\t}\n\tr.purged = true",
              "replace": "\tr.purged = true"}
@@ -1126,7 +1139,7 @@ print("\ncheck-elsewhere")
 # the row keeps surviving in `make gaps` — the expected result there — and nothing
 # notices the excuse went hollow. So the plant weakens the assertion inside a named
 # txtar and requires the check to say the harness no longer holds the property.
-control("a named txtar that stopped asserting", "harness/gnoland/testdata/kourtv2_paymentauth.txtar",
+control("a named txtar that stopped asserting", "harness/gnoland/testdata/kourtv3_paymentauth.txtar",
         "stderr 'direct user call'",
         "stderr ''",
         "does not assert this property",
@@ -1225,7 +1238,7 @@ def inject(label, rows, want):
 
 
 def srow(label, **kw):
-    r = {"pkg": "kourtv2", "file": "buy.gno", "label": label,
+    r = {"pkg": "kourtv3", "file": "buy.gno", "label": label,
          "find": "NoSourceLineSaysThis", "replace": "x"}
     r.update(kw)
     return r
@@ -1261,7 +1274,7 @@ inject("an `elsewhere` excuse pointing at a deleted file",
 # missing only `file` was reported as UNKNOWN PKG — naming a package that was
 # right there in the map.
 inject("a row that is not shaped like a row",
-       [{"pkg": "kourtv2", "label": "SELFTEST malformed", "find": "x"}],
+       [{"pkg": "kourtv3", "label": "SELFTEST malformed", "find": "x"}],
        "MALFORMED ROW 'SELFTEST malformed'")
 # Fail CLOSED when the pkg map moves. It is IMPORTED from mutate.py so there is
 # only one copy; the cost is a guard that resolves nothing if the name goes away,
@@ -1324,7 +1337,7 @@ print("\ncheck-height-shim")
 # nobody re-checks those by eye. A single missed one means ONE TRANSACTION
 # SEEING TWO HEIGHTS — a claim opened at fabricated height 20,000 while the twap
 # ring observes at real height 30 — so it must fail on a reintroduced raw read.
-control("a height read that bypasses the shim", STAKE,
+control("a height read that bypasses the shim", STAKE3,
         "func rawHeight(cs *claimState) int64 {\n\th := heightNow()",
         "func rawHeight(cs *claimState) int64 {\n\th := runtime.ChainHeight()",
         "bypass heightNow", argv=["python3", HSHIM])
@@ -1336,12 +1349,12 @@ control("a pure package reading the chain directly", TWAP,
         "func (r Ring) Head() int     { _ = runtime.ChainHeight(); return r.head }",
         "raw height read", argv=["python3", HSHIM])
 # A literal scan is defeated by an import alias; the audit pointed that out.
-control("chain/runtime imported under an alias", BUY,
+control("chain/runtime imported under an alias", BUY3,
         '\t"chain/runtime/unsafe"', '\trt "chain/runtime"',
         "aliases chain/runtime", argv=["python3", HSHIM])
 # kourtv2 must never build a ledger without a clock: that ledger would read REAL
 # height while the claims and rings around it read fabricated height.
-control("a court built on a clockless ledger", COURT,
+control("a court built on a clockless ledger", COURT3,
         "grc20votes.NewLedgerWithClock(name, courtSymbol(slug), coinDecimals, epochBlocks, realmClock{})",
         "grc20votes.NewLedger(name, courtSymbol(slug), coinDecimals, epochBlocks)",
         "use NewLedgerWithClock", argv=["python3", HSHIM])
@@ -1352,7 +1365,7 @@ control("a court built on a clockless ledger", COURT,
 # height then writes into heightNow()'s future and checkpoint panics with "the
 # clock went backwards", in a test that did nothing wrong. Measured that panic on
 # an ad-hoc probe before this arm existed.
-control("a test that arms the clock and leaves it armed", TCTEST,
+control("a test that arms the clock and leaves it armed", TCTEST3,
         "\tdefer resetTestClock(alice) // the latch is global; do not leak an armed clock\n"
         "\ttcArmed, tcBase, tcFloor = true, testingTime(), testingTime()\n"
         "\ttcHeightBase, tcHeightFloor = testingHeight(), testingHeight() // a fresh scenario chain",
@@ -1361,7 +1374,7 @@ control("a test that arms the clock and leaves it armed", TCTEST,
         "never defers resetTestClock", argv=["python3", HSHIM])
 # And it must fail CLOSED if its own anchor goes away, rather than scanning
 # clean because heightNow() no longer reads anything.
-control("a shim that no longer reads the chain", CLOCKF,
+control("a shim that no longer reads the chain", CLOCKF3,
         "h = runtime.ChainHeight()", "h = int64(0)",
         "lost its anchor", argv=["python3", HSHIM])
 
@@ -1504,7 +1517,7 @@ print("\ncheck-mutation-scope")
 # never mutated, and reported as covered. The map's own note on offerer says
 # it: "a package present in this map with no row in the corpus is exactly as
 # unmeasured as one that is missing."
-control("a mutated realm imports an unmutated package", CLAIMGNO,
+control("a mutated realm imports an unmutated package", CLAIMGNO3,
         '\ttwap "gno.land/p/kourt/twap/v0"',
         '\ttwap "gno.land/p/kourt/twap/v0"\n\t_ "gno.land/p/kourt/tickbook/v0"',
         "imports one that is never mutated", argv=["python3", MUTSCOPE])
@@ -1772,7 +1785,7 @@ else:
     # machine, which is the same reason the default is as high as it is.
     os.environ["MUTATE_SUITE_TIMEOUT"] = "240"
     feed("a mutant that hangs rather than fails", [{
-        "pkg": "kourtv2", "file": "stakeseries.gno",
+        "pkg": "kourtv3", "file": "stakeseries.gno",
         "label": "the merge loop stops advancing",
         "find": "if i < len(ys) && ys[i].e == e {",
         "replace": "if i < len(ys) && ys[i].e != e {"}], "TIMED OUT")
@@ -1870,7 +1883,7 @@ else:
     r = subprocess.run(["python3", "scripts/mutate-parallel.py", "--shards", "1",
                         "--expect-survive"],
                        input=json.dumps([
-                           {"pkg": "kourtv2", "file": "emission.gno",
+                           {"pkg": "kourtv3", "file": "emission.gno",
                             "label": "SELFTEST an anchor that matches nothing",
                             "find": "NoSourceLineSaysThis", "replace": "x"}]),
                        capture_output=True, text=True)
@@ -1889,7 +1902,7 @@ else:
     # did not match would have fallen through to the summary tripwire and been
     # reported as "no summary line": true, and silent about what actually happened.
     lbl = "a hung baseline is reported as its own thing"
-    src = os.path.join(REPO, "r/kourtv2/stakeseries.gno")
+    src = os.path.join(REPO, "r/kourtv3/stakeseries.gno")
     find = "if i < len(ys) && ys[i].e == e {"
     text = open(src).read()
     if text.count(find) != 1:

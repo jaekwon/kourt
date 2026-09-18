@@ -37,11 +37,11 @@ func TestCourtTxtar(t *testing.T) {
 
 // staged is every kourt package the scripts load, in dependency order. The
 // /p/ packages map to gno.land/p/kourt/<name>/v0; the realm to
-// gno.land/r/kourt/kourtv1.
+// gno.land/r/kourt/<generation> — every generation the txtars name.
 var staged = []struct{ kind, name string }{
 	{"p", "checkpoint"}, {"p", "grc20votes"}, {"p", "governor"}, {"p", "twap"},
 	{"p", "cshares"}, {"p", "tickbook"}, {"p", "curve"},
-	{"r", "kourtv1"}, {"r", "kourtv2"},
+	{"r", "kourtv1"}, {"r", "kourtv2"}, {"r", "kourtv3"},
 }
 
 func TestMain(m *testing.M) {

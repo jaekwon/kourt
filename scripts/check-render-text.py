@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 
 # Every sanctioned reader of a claim's raw title, and what it does with it.
 # DISPLAY readers must sanitise; PARSE readers must not reach an output buffer.
@@ -92,7 +92,7 @@ TITLE_READERS = {
 # says "a court's parameters are not secret". But mustCourtName validates LENGTH
 # ONLY: no alphabet, and no newline check, where mustCourtDesc refuses newlines with
 # a stated reason that applies to the name just as well ("it renders inline beside a
-# court name in list rows, where a newline forges a row"). kourtv2's own render is
+# court name in list rows, where a newline forges a row"). kourtv3's own render is
 # safe because InlineText folds. The consumer that is NOT is r/ccwrap, which
 # builds a GRC20 token name as "Wrapped " + CourtName(slug) — raw user text crossing
 # into another realm's display field. Left alone deliberately: tightening
@@ -168,7 +168,7 @@ BOARD_TEXT_READERS = {
 
 # ---------------------------------------------------------------- foreign --
 #
-# THE SCOPE ABOVE IS kourtv2 ONLY, AND THAT IS WHERE THE HOLE WAS. CourtName is
+# THE SCOPE ABOVE IS kourtv3 ONLY, AND THAT IS WHERE THE HOLE WAS. CourtName is
 # sanctioned to return raw text on the rule that "consumers sanitise at their own
 # output" — and nothing checked that any consumer did. The note above even named
 # the consumer, r/ccwrap, and left it: the reasoning was that tightening
@@ -177,19 +177,19 @@ BOARD_TEXT_READERS = {
 #
 # What was actually there: mustCourtName validates length only, 1..100 characters,
 # where mustCourtDesc beside it walks the string and refuses newlines. ccwrap's
-# Enable built the wrapped token's name as `"Wrapped " + kourtv2.CourtName(slug)`
+# Enable built the wrapped token's name as `"Wrapped " + kourtv3.CourtName(slug)`
 # and its Render wrote that name into an H1 with `ufmt.Sprintf("# %s\n\n"...)`.
 # So any address that could call StartCourt could put headings, list rows and raw
 # HTML on ccwrap's page, and gnoweb runs no sanitiser after a realm.
 #
 # Four realms have a Render: govern delegates to the engine, kourtv1 is frozen and
-# reads none of kourtv2's text, kourtv2 is censused above. ccwrap was the whole of
+# reads none of kourtv3's text, kourtv3 is censused above. ccwrap was the whole of
 # the uncovered surface — and the reason to spend a census on ONE site is that rows
 # cannot say "a second consumer appeared". A row asserts a test notices when this
 # call site changes; only the set can notice a new one.
-RAW_TEXT_READ = re.compile(r"\bkourtv2\.(?:CourtName|CourtDesc|ClaimTitle)\(")
+RAW_TEXT_READ = re.compile(r"\bkourtv3\.(?:CourtName|CourtDesc|ClaimTitle)\(")
 
-# Functions outside kourtv2 that read its raw user text, and why each is allowed.
+# Functions outside kourtv3 that read its raw user text, and why each is allowed.
 FOREIGN_TEXT_READERS = {
     ("ccwrap", "ccwrap.gno", "Enable"):
         "stores the raw name as the token's own name — DATA, not output. Escaping "
@@ -309,7 +309,7 @@ def main():
     # And the same census over every OTHER realm, which is where ccwrap was.
     seen_fread, seen_fshow = set(), set()
     for rdir in sorted(p for p in (ROOT / "r").iterdir()
-                       if p.is_dir() and p.name != "kourtv2"):
+                       if p.is_dir() and p.name != "kourtv3"):
         for path in sorted(rdir.glob("*.gno")):
             if path.name.endswith(("_test.gno", "_filetest.gno")):
                 continue
@@ -318,7 +318,7 @@ def main():
                 if RAW_TEXT_READ.search(body):
                     seen_fread.add(key)
                     if key not in FOREIGN_TEXT_READERS:
-                        bad.append("%s/%s/%s reads kourtv2's RAW user text from "
+                        bad.append("%s/%s/%s reads kourtv3's RAW user text from "
                                    "another realm and is not in FOREIGN_TEXT_READERS. "
                                    "If it displays that text it must sanitise at its "
                                    "own output; if it stores it, add it here with that "
@@ -336,7 +336,7 @@ def main():
                                    "without applying %s — raw court text reaches the "
                                    "page" % (key + (want,)))
     for key in sorted(set(FOREIGN_TEXT_READERS) - seen_fread):
-        bad.append("%s/%s/%s is in FOREIGN_TEXT_READERS but no longer reads kourtv2's "
+        bad.append("%s/%s/%s is in FOREIGN_TEXT_READERS but no longer reads kourtv3's "
                    "raw text — the reader moved or the entry is stale" % key)
     for key in sorted(set(FOREIGN_NAME_DISPLAY) - seen_fshow):
         bad.append("%s/%s/%s is in FOREIGN_NAME_DISPLAY but no longer writes a token "
@@ -360,7 +360,7 @@ def main():
         return 1
 
     print("check-render-text: %d title reader(s), %d court-text reader(s), %d body "
-          "caller(s) and %d board-text reader(s) in kourtv2, plus %d foreign reader(s) "
+          "caller(s) and %d board-text reader(s) in kourtv3, plus %d foreign reader(s) "
           "of its raw text and %d foreign token-name display(s) — each routed through "
           "its own gate."
           % (len(seen_title), len(seen_court), len(seen_body), len(seen_board),

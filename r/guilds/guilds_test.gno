@@ -7,7 +7,7 @@ import (
 	testutils "gno.land/p/nt/testutils/v0"
 	uassert "gno.land/p/nt/uassert/v0"
 
-	kourt "gno.land/r/kourt/kourtv2"
+	kourt "gno.land/r/kourt/kourtv3"
 )
 
 // A real Discord snowflake — the one covid's moderators actually chose.
@@ -91,7 +91,7 @@ func TestAModeratorOfAnotherCourtCannotSet(cur realm, t *testing.T) {
 	}
 }
 
-// A court that does not exist has nothing to bind, and kourtv2 says so rather
+// A court that does not exist has nothing to bind, and kourtv3 says so rather
 // than this realm inventing an answer.
 func TestNoSuchCourt(cur realm, t *testing.T) {
 	testing.SetRealm(testing.NewUserRealm(testutils.TestAddress("g-nocourt")))

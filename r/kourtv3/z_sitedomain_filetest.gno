@@ -1,5 +1,5 @@
-// PKGPATH: gno.land/r/kourt/sitekourt
-package sitekourt
+// PKGPATH: gno.land/r/kourt/sitekourt3
+package sitekourt3
 
 // THE SITE-DOMAIN EVENTS — the second events filetest, and why there is one.
 //
@@ -58,7 +58,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1djper8qnalpftu5jag8sm3rg2fk77se4vyc4yr"
+//         "value": "g1f0gh7mlcglghxlq4lmwaq0qmx50a9v35u0l280"
 //       },
 //       {
 //         "key": "height",
@@ -84,7 +84,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1djper8qnalpftu5jag8sm3rg2fk77se4vyc4yr"
+//         "value": "g1f0gh7mlcglghxlq4lmwaq0qmx50a9v35u0l280"
 //       },
 //       {
 //         "key": "height",

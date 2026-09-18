@@ -1,9 +1,9 @@
 // Package guilds records which Discord server a court's moderators chose.
 //
-// WHY A SEPARATE REALM. kourtv2 is deployed and knows nothing about Discord, and
+// WHY A SEPARATE REALM. kourtv3 is deployed and knows nothing about Discord, and
 // a realm on chain is not edited — adding a field there means a new realm and a
 // migration for every court that exists. This holds one string per court and
-// asks kourtv2 who may set it, so the court's own moderator list stays the only
+// asks kourtv3 who may set it, so the court's own moderator list stays the only
 // authority and this file never has one of its own.
 //
 // WHY IT EXISTS AT ALL, when the service could verify a signed message and did.
@@ -27,7 +27,7 @@ import (
 
 	bptree "gno.land/p/nt/bptree/v0"
 
-	kourt "gno.land/r/kourt/kourtv2"
+	kourt "gno.land/r/kourt/kourtv3"
 )
 
 // choice is what a court's moderators decided: which server, and who said so.
@@ -44,7 +44,7 @@ type choice struct {
 // guildOf is court slug -> choice. One server per court: a court with two is a
 // court whose readers are told different things by the same page.
 //
-// A bptree rather than an avl tree because kourtv2 uses one for every ordered
+// A bptree rather than an avl tree because kourtv3 uses one for every ordered
 // map it keeps, and Courts() wants slug order.
 var guildOf = bptree.NewBPTree32()
 
@@ -111,7 +111,7 @@ func GuildOf(courtSlug string) string {
 // THE SETTER IS WHO ASKED, NOT WHO MODERATES NOW. A court that replaces its
 // moderators does not change this — the choice was made by whoever made it, and
 // rewriting that would destroy the only record of who did. Whether they STILL
-// moderate is a separate question, and kourtv2 is the one to ask it.
+// moderate is a separate question, and kourtv3 is the one to ask it.
 //
 // STRINGS AND NOT AN address, because the caller is a machine reading qeval's
 // printed output: an address prints as `("g1…" .uverse.address)` and a string as

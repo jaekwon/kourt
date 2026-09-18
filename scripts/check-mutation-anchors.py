@@ -24,7 +24,7 @@ branch; 45 of them anchored nowhere and were dropped. They were not 45 problems.
 They were three:
 
   - 19 quoted a panic string, and the rename moved the prefix `courtv2:` to
-    `kourtv2:`. 15 of them needed nothing but the respelling; the other 4 had
+    `kourtv3:`. 15 of them needed nothing but the respelling; the other 4 had
     moved as well. A path guard cannot see this class — `courtv2:` inside a panic
     message is not a path. A HALF-RENAME HIDES IN DATA AS WELL AS IN PATHS.
   - 8 were anchored in the `defaultParams()` struct literal, and ONE added field
@@ -108,7 +108,7 @@ import repolock  # noqa: E402
 # apart, and the total==0 backstop below only catches the case where nothing at
 # all is left.
 MAY_BE_EMPTY = {
-    "scripts/mutations-kourtv2-KNOWN-GAPS.json":
+    "scripts/mutations-kourtv3-KNOWN-GAPS.json":
         "every row here is a deliberate survivor, so `[]` means every known gap "
         "is closed (8e4c33a). It fills again when the next one is found.",
 }
@@ -140,7 +140,7 @@ REQUIRED = ("file", "find", "replace")
 # citations everywhere else for the same reason: check-citations rejects them in .gno
 # and .md alike, with "Cite the file and an anchor instead. Line numbers rot."
 #
-# Twelve rows carried one — `modvote/mustCandidate:242: kourtv2: no such candidate` —
+# Twelve rows carried one — `modvote/mustCandidate:242: kourtv3: no such candidate` —
 # after an earlier cleanup was believed to have removed them all, and two of those
 # twelve differed from each other ONLY by the number, so the line was doing the work
 # a name should have done: one guards a nil candidate tree, the other a missing key.
@@ -288,18 +288,18 @@ def cross_verdicts(pairs):
 
 # ---- fixtures ----------------------------------------------------------------
 # Every verdict is pinned, because a guard whose checks have rotted reports clean.
-FIXTURE_TREE = {("kourtv2", "a.gno"): '\tif x < 1 {\n\t\tpanic("no")\n\t}\n\tif x < 1 {\n',
-                ("kourtv2", "b.gno"): "\tonce := 1\n"}
+FIXTURE_TREE = {("kourtv3", "a.gno"): '\tif x < 1 {\n\t\tpanic("no")\n\t}\n\tif x < 1 {\n',
+                ("kourtv3", "b.gno"): "\tonce := 1\n"}
 
 
 def fixture_resolve(pkg, f):
-    if pkg != "kourtv2":
+    if pkg != "kourtv3":
         return None, None
     return "synthetic/" + f, FIXTURE_TREE.get((pkg, f))
 
 
 def R(**kw):
-    r = {"pkg": "kourtv2", "file": "b.gno", "label": "L",
+    r = {"pkg": "kourtv3", "file": "b.gno", "label": "L",
          "find": "once", "replace": "x"}
     r.update(kw)
     return r
@@ -312,13 +312,13 @@ ROW_FIXTURES = [
     ([R(find="absent")], "matched 0x"),
     ([R(file="a.gno", find="\tif x < 1 {\n")], "matched 2x"),
     ([R(elsewhere="no/such/file.txtar")], "STALE ELSEWHERE"),
-    ([{"pkg": "kourtv2", "file": "b.gno", "find": "once", "replace": "x"}],
+    ([{"pkg": "kourtv3", "file": "b.gno", "find": "once", "replace": "x"}],
      "UNLABELLED"),
-    ([{"pkg": "kourtv2", "label": "L", "find": "once"}], "MALFORMED ROW"),
+    ([{"pkg": "kourtv3", "label": "L", "find": "once"}], "MALFORMED ROW"),
     (["not a row at all"], "MALFORMED ROW"),
     # A missing `file` used to be reported as UNKNOWN PKG, naming a package that
     # was right there in PKGS.
-    ([{"pkg": "kourtv2", "label": "L", "find": "once", "replace": "x"}],
+    ([{"pkg": "kourtv3", "label": "L", "find": "once", "replace": "x"}],
      "MALFORMED ROW"),
     ([R(label="quality/OpenFlag:82: settled")], "LINE-NUMBERED LABEL"),
     # And the labels that legitimately carry a colon and digits must NOT trip it, or

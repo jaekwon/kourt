@@ -3,7 +3,7 @@
 #
 # THE SOURCE IN THIS REPO IS NOT THE SOURCE THAT SHIPS, and that is the whole
 # reason this file exists rather than a line in a README. r/guilds imports the
-# court realm at gno.land/r/kourt/kourtv2, which is where it lives HERE; on
+# court realm at gno.land/r/kourt/kourtv3, which is where it lives HERE; on
 # gno.land it lives under the deployer's address namespace at
 # gno.land/r/g1ecsuj.../kourt, because mainnet has no registered `kourt`
 # namespace and a package deploys exactly once. So the import has to be rewritten
@@ -11,7 +11,7 @@
 # nobody can review or repeat.
 #
 # THE PACKAGE NAME DIFFERS TOO, and it is the trap. Locally the court realm is
-# `package kourtv2` at .../kourtv2; on mainnet it is `package kourt` at
+# `package kourtv3` at .../kourtv3; on mainnet it is `package kourt` at
 # .../kourt. gno rejects an import whose identifier does not match the package
 # name unless one is given, so the rewrite keeps the `kourt` alias the source
 # already carries and both chains are satisfied by the same line.
@@ -26,7 +26,7 @@
 #
 # --namespace defaults to the court realm's, so the two sit together. Any address
 # namespace works: nothing about the binding's trust comes from WHERE this realm
-# lives. It comes from which court realm it imports and from kourtv2.IsCourtMod,
+# lives. It comes from which court realm it imports and from kourtv3.IsCourtMod,
 # and the site is told the path by --guild-realm.
 set -eu
 
@@ -104,7 +104,7 @@ esac
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/guilds"
-sed -e "s|kourt \"gno.land/r/kourt/kourtv2\"|kourt \"$COURT_PATH\"|" \
+sed -e "s|kourt \"gno.land/r/kourt/kourtv3\"|kourt \"$COURT_PATH\"|" \
     "$SRC/guilds.gno" > "$STAGE/guilds/guilds.gno"
 printf 'module = "%s"\ngno = "0.9"\n' "$PKGPATH" > "$STAGE/guilds/gnomod.toml"
 
@@ -112,7 +112,7 @@ if ! grep -q "$COURT_PATH" "$STAGE/guilds/guilds.gno"; then
   echo "deploy-guilds: the import rewrite matched nothing — the source moved." >&2
   exit 1
 fi
-if grep -q "gno.land/r/kourt/kourtv2" "$STAGE/guilds/guilds.gno"; then
+if grep -q "gno.land/r/kourt/kourtv3" "$STAGE/guilds/guilds.gno"; then
   echo "deploy-guilds: the staged source still names this repo's court realm." >&2
   exit 1
 fi

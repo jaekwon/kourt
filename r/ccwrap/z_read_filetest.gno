@@ -5,15 +5,15 @@ package readccwrap
 // in check-storage.py — it must write nothing at all.
 //
 // It did not exist, and its absence was the exact drift check-storage.py's own
-// registry comment describes about kourtv2: "one realm hardcoded, which is how
-// kourtv2 came to have no filetest at all and therefore no guard against the
+// registry comment describes about kourtv3: "one realm hardcoded, which is how
+// kourtv3 came to have no filetest at all and therefore no guard against the
 // defect below". The coverage check there catches a realm that HAS a filetest
 // with no budget entry. A realm with NO filetest is invisible to it, and ccwrap
 // — which has six exported reads and two render routes — was that realm.
 //
 // The defect it guards against is a query that lazily ALLOCATES: the transitions
 // are thrown away with the query, so the only symptom is storage that grows on
-// reads, months later, under load. Two of those had already happened in kourtv2
+// reads, months later, under load. Two of those had already happened in kourtv3
 // and both were found by hand.
 //
 // WHAT THIS DOES NOT COVER, stated so the None is not read as more than it is.
@@ -24,9 +24,9 @@ package readccwrap
 // balance directly. Covering the other two needs a second, writing filetest with
 // a measured ceiling, which is not this file.
 //
-// A second boundary: the reads below cross into kourtv2, and storage is reported
-// PER REALM. An allocation that happened inside kourtv2 on one of these calls
-// would be attributed to kourtv2, not to the ccwrap line this file budgets.
+// A second boundary: the reads below cross into kourtv3, and storage is reported
+// PER REALM. An allocation that happened inside kourtv3 on one of these calls
+// would be attributed to kourtv3, not to the ccwrap line this file budgets.
 
 import (
 	"gno.land/r/kourt/ccwrap"

@@ -54,8 +54,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MUTATE = os.path.join(ROOT, "scripts", "mutate.py")
-CORPORA = ["scripts/mutations-kourtv2.json",
-           "scripts/mutations-kourtv2-KNOWN-GAPS.json"]
+CORPORA = ["scripts/mutations-kourtv3.json",
+           "scripts/mutations-kourtv3-KNOWN-GAPS.json"]
 
 # ---------------------------------------------------------------------------
 # PKGS, read from the source. Its values are os.path.join(...) calls rather than

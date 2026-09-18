@@ -1,5 +1,5 @@
-// PKGPATH: gno.land/r/kourt/readkourt
-package readkourt
+// PKGPATH: gno.land/r/kourt/readkourt3
+package readkourt3
 
 // The read surface, exercised from OUTSIDE the package — and budgeted, so that
 // a read which starts writing fails the ordinary test run.

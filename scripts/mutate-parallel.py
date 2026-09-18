@@ -84,7 +84,7 @@ def main():
         raw = sys.stdin.read() if not sys.stdin.isatty() else ""
         if not raw.strip():
             ap.error("no batch file given and nothing arrived on stdin. Pass a "
-                     "corpus (scripts/mutations-kourtv2.json), or pipe a JSON "
+                     "corpus (scripts/mutations-kourtv3.json), or pipe a JSON "
                      "batch in. `make mutate` does the former.")
         try:
             muts = json.loads(raw)
@@ -104,7 +104,7 @@ def main():
     if not muts:
         ap.error("the batch is empty, so this run would measure nothing and still "
                  "exit 0. If a filter built it, the filter matched no rows — check "
-                 "the labels against scripts/mutations-kourtv2.json, which renames "
+                 "the labels against scripts/mutations-kourtv3.json, which renames "
                  "them as the code moves.")
     n = a.shards or max(2, min(6, (os.cpu_count() or 4) // 2))
     n = min(n, len(muts)) or 1

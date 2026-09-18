@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-KOURTV2 = ROOT / "r" / "kourtv2"
+KOURTV3 = ROOT / "r" / "kourtv3"
 GOVERNOR = ROOT / "p" / "governor"
 CCWRAP = ROOT / "r" / "ccwrap"
 GRC20VOTES = ROOT / "p" / "grc20votes"
@@ -53,7 +53,7 @@ LIVE = re.compile(r"\.(BalanceOf|VotesOf|TotalSupply)\(")
 # Keyed by (pkg, file) like LIVE_ALLOWED below, not by bare filename. The set this
 # replaced was filename-only, which was harmless while it meant "zero everywhere";
 # now that the value is an ALLOWANCE, a governor/meta.gno appearing one day would
-# silently inherit kourtv2's — misattribution that grants permission rather than
+# silently inherit kourtv3's — misattribution that grants permission rather than
 # denying it, which is the direction that does not announce itself.
 # quality.gno's row is GONE from here. A key naming a deleted file is never
 # consulted, because the scan walks the files that exist and looks each one up —
@@ -64,24 +64,24 @@ LIVE = re.compile(r"\.(BalanceOf|VotesOf|TotalSupply)\(")
 # goes stale. It denies rather than grants, so it was harmless — the cost was to
 # the reader, who had no way to tell it from a file still being watched.
 TALLY_LIVE_ALLOWED = {
-    ("kourtv2", "dispute.gno"): 0,
-    ("kourtv2", "modvote.gno"): 0,
-    ("kourtv2", "openrewards.gno"): 0,
-    ("kourtv2", "meta.gno"): 0,
+    ("kourtv3", "dispute.gno"): 0,
+    ("kourtv3", "modvote.gno"): 0,
+    ("kourtv3", "openrewards.gno"): 0,
+    ("kourtv3", "meta.gno"): 0,
 }
 
 # Legitimate live readers, pinned at their measured counts. A render surface or a
 # spendable() check is not a tally; a NEW one still has to be deliberate.
 LIVE_ALLOWED = {
-    ("kourtv2", "buy.gno"): 1,        # CoinBalanceOf, a read entrypoint
-    ("kourtv2", "court.gno"): 1,      # CoinSupply
-    ("kourtv2", "emission.gno"): 1,   # the budget base
-    ("kourtv2", "lock.gno"): 2,       # spendable() and disposable()
-    ("kourtv2", "render.gno"): 2,     # the page
-    ("kourtv2", "testclock.gno"): 1,  # the virgin-realm guard
+    ("kourtv3", "buy.gno"): 1,        # CoinBalanceOf, a read entrypoint
+    ("kourtv3", "court.gno"): 1,      # CoinSupply
+    ("kourtv3", "emission.gno"): 1,   # the budget base
+    ("kourtv3", "lock.gno"): 2,       # spendable() and disposable()
+    ("kourtv3", "render.gno"): 2,     # the page
+    ("kourtv3", "testclock.gno"): 1,  # the virgin-realm guard
     # THE one weight expression, plus the one ceiling the dispute lane supplies.
     # Arm 4 pins that these are the only two and that nothing else recomputes them.
-    ("kourtv2", "voteweight.gno"): 2,
+    ("kourtv3", "voteweight.gno"): 2,
     ("governor", "governor.gno"): 2,  # render only
 }
 
@@ -375,7 +375,7 @@ RULE_CLAUSE = "some question is open now OR these weights carry forward"
 # historical one is left, which is precisely the failure being guarded. Counted both
 # directions on the house rule: too few is the drift, too many is a fresh restatement of
 # a rule that has already gone stale three times and should be read before it is added.
-RULE_SITES = (("r/kourtv2/votelock.gno", 1), ("VOTEFLOOR.md", 2))
+RULE_SITES = (("r/kourtv3/votelock.gno", 1), ("VOTEFLOOR.md", 2))
 
 # ARM 12 — the coin's checkpoint archive is never trimmed.
 #
@@ -498,7 +498,7 @@ MINT_N = 3  # see the audit above
 # would no longer be flagged. Pinning that every purge verb still spells the gate out
 # keeps both guards working on the same text.
 PURGE_VERB = re.compile(r"^func (Purge\w*)\(cur realm", re.M)
-PURGE_AUTH = 'panic("kourtv2: only a global DAO member may purge")'
+PURGE_AUTH = 'panic("kourtv3: only a global DAO member may purge")'
 PURGE_CODE = "mustCategoryCode("
 PURGE_VERBS_N = 8  # PurgeClaim, PurgeCourt, PurgeModLogRow, PurgeFolder,
 #                    PurgeBoardRow, PurgeCourtLogRow, PurgeBoardRange,
@@ -604,7 +604,7 @@ CREDIT_HOOKS = re.compile(
 # It paid the author's RECORD only at tier HIGH, and the reasoning was that MID
 # is what an unlooked-at claim gets by default, so crediting it is the
 # author-mill's habitat. The tier is derived from the claim's stake size now
-# (r/kourtv2/tier.gno), so there is no "the court judged this
+# (r/kourtv3/tier.gno), so there is no "the court judged this
 # exceptional" left to gate on — and gating the record on SIZE would pay
 # standing for volume, which is the same faucet reached by a different route.
 # The row was dropped rather than re-keyed.
@@ -800,7 +800,7 @@ def main() -> int:
     # folded into the loop below: that loop's file census feeds arms 1 and 2, and
     # adding a directory to it would move counts those arms pin.
     doc_scanned, per_dir = 0, {}
-    for d in (KOURTV2, CCWRAP):
+    for d in (KOURTV3, CCWRAP):
         per_dir[d.name] = 0
         for q in sorted(d.glob("*.gno")):
             if q.name.endswith("_test.gno"):
@@ -818,7 +818,7 @@ def main() -> int:
                                 f"MAX not SUM")
     # Arm 12: nobody trims the coin's archive.
     trims = []
-    for d in (KOURTV2, GRC20VOTES, CCWRAP):
+    for d in (KOURTV3, GRC20VOTES, CCWRAP):
         for q in sorted(d.glob("*.gno")):
             if q.name.endswith("_test.gno"):
                 continue
@@ -880,7 +880,7 @@ def main() -> int:
     # green this file exists to refuse. If a second liveness flag is ever added,
     # restore this arm from git history rather than writing a new one.
 
-    # PER DIRECTORY, not a total. A total of 20+ is satisfied by kourtv2 alone, so
+    # PER DIRECTORY, not a total. A total of 20+ is satisfied by kourtv3 alone, so
     # ccwrap could move away and this arm would quietly stop watching the realm where
     # one of the two real instances lived — measured: the control for a moved ccwrap
     # was SILENT against the total-only form.
@@ -890,9 +890,9 @@ def main() -> int:
                   f"{name}; that tree moved and this arm is measuring nothing "
                   f"there.", file=sys.stderr)
             return 1
-    if per_dir.get("kourtv2", 0) < 20:
+    if per_dir.get("kourtv3", 0) < 20:
         print(f"check-epoch-coherence: arm 9 scanned only "
-              f"{per_dir.get('kourtv2', 0)} kourtv2 files; the layout moved and "
+              f"{per_dir.get('kourtv3', 0)} kourtv3 files; the layout moved and "
               f"this arm is measuring nothing.", file=sys.stderr)
         return 1
     arm4 = {"weight_fn": 0, "cap_fn": 0, "floor": 0,
@@ -906,7 +906,7 @@ def main() -> int:
     # [terminal] tag. Found by ablation, and only because the grep for the tag came
     # up empty while the arm was in fact firing.
 
-    for pkg, d in (("kourtv2", KOURTV2), ("governor", GOVERNOR)):
+    for pkg, d in (("kourtv3", KOURTV3), ("governor", GOVERNOR)):
         files = [p for p in sorted(d.glob("*.gno"))
                  if not p.name.endswith("_test.gno")]
         if not files:
@@ -944,14 +944,14 @@ def main() -> int:
                                 f"{sorted(epochs)} — a numerator and a bar taken "
                                 f"at different instants cannot be compared")
 
-            # OUTSIDE the kourtv2 branch below, deliberately: the single writer it
+            # OUTSIDE the kourtv3 branch below, deliberately: the single writer it
             # counts lives in the ENGINE, and a new one appearing on the realm side
             # would be exactly as much of a violation. Counting everywhere is also
             # why the measured total is 1 rather than 1-per-tree.
             arm4["stateWriter"] += len(STATE_WRITE.findall(src))
 
-            # Arm 4 — accumulated across the kourtv2 tree, checked after the loop.
-            if pkg == "kourtv2":
+            # Arm 4 — accumulated across the kourtv3 tree, checked after the loop.
+            if pkg == "kourtv3":
                 arm4["weight_fn"] += len(WEIGHT_FN.findall(src))
                 arm4["cap_fn"] += len(CAP_FN.findall(src))
                 arm4["floor"] += len(FLOOR_SHAPE.findall(src))
@@ -1128,7 +1128,7 @@ def main() -> int:
         return 1
 
     # THE DISCARD IS REACHED, and between the right two arms.
-    dis = (ROOT / "r/kourtv2/dispute.gno").read_text(encoding="utf-8")
+    dis = (ROOT / "r/kourtv3/dispute.gno").read_text(encoding="utf-8")
     at = -1
     for line in SPAM_DISCARD_ORDER:
         i = dis.find(line)
@@ -1148,7 +1148,7 @@ def main() -> int:
         at = i
 
     # THE DRAW'S TWO MULTIPLIERS, both applied and in order.
-    cry = (ROOT / "r/kourtv2/openrewards.gno").read_text(encoding="utf-8")
+    cry = (ROOT / "r/kourtv3/openrewards.gno").read_text(encoding="utf-8")
     at = -1
     for line in DRAW_MULTIPLIERS:
         i = cry.find(line)
@@ -1166,7 +1166,7 @@ def main() -> int:
             return 1
         at = i
 
-    # Arm 4, after the whole kourtv2 tree has been read.
+    # Arm 4, after the whole kourtv3 tree has been read.
     for key, want, what in (
         ("weight_fn", 1, "votingWeight definition(s)"),
         ("cap_fn", 1, "voteCap definition(s)"),
@@ -1271,7 +1271,7 @@ def main() -> int:
 
     # GLOBAL floors, not per-file. Blinding either pattern enumerates nothing,
     # so no binding can be judged foreign and no helper judged to take `who`.
-    # Measured across kourtv2+govern: 93 who-bindings, 11 helpers.
+    # Measured across kourtv3+govern: 93 who-bindings, 11 helpers.
     # PER-FILE WOULD BE WRONG, and was tried: votelock.gno mentions lockVote(
     # and binds no `who` at all, so a per-file floor fired on a clean tree.
     if who_seen == 0:

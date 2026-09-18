@@ -1,5 +1,5 @@
-// PKGPATH: gno.land/r/kourt/tcfiletest
-package tcfiletest
+// PKGPATH: gno.land/r/kourt/tcfiletest3
+package tcfiletest3
 
 // The one place the VIRGIN arming path can be tested: a fresh deploy, where
 // init has just seated the meta court and nothing else has happened.

@@ -1,5 +1,5 @@
-// PKGPATH: gno.land/r/kourt/evtkourt
-package evtkourt
+// PKGPATH: gno.land/r/kourt/evtkourt3
+package evtkourt3
 
 // THE MOD-LOG EVENTS, held for the first time.
 //
@@ -66,7 +66,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1cg7y89t6k2sry4ga32qe7j782wsyq8vdycwach"
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
 //       },
 //       {
 //         "key": "height",
@@ -92,7 +92,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1cg7y89t6k2sry4ga32qe7j782wsyq8vdycwach"
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
 //       },
 //       {
 //         "key": "height",
@@ -118,7 +118,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1cg7y89t6k2sry4ga32qe7j782wsyq8vdycwach"
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
 //       },
 //       {
 //         "key": "height",
@@ -144,7 +144,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1cg7y89t6k2sry4ga32qe7j782wsyq8vdycwach"
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
 //       },
 //       {
 //         "key": "height",
@@ -170,7 +170,7 @@ func main(cur realm) {
 //       },
 //       {
 //         "key": "by",
-//         "value": "g1cg7y89t6k2sry4ga32qe7j782wsyq8vdycwach"
+//         "value": "g1udmv24m6mlzy5wxks939chetthun8y9hlatuj3"
 //       },
 //       {
 //         "key": "height",

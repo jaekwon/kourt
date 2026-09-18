@@ -61,7 +61,7 @@ import repolock
 # now rather than after the first one rots.
 SRC = ["r/govern", "p/checkpoint", "p/grc20votes",
        "p/governor", "r/offerer", "docs/DESIGN.md",
-       "r/kourtv1", "r/kourtv2", "p/twap",
+       "r/kourtv1", "r/kourtv2", "r/kourtv3", "p/twap",
        "p/cshares", "p/tickbook", "p/curve",
        # The .txtar integration tests. Added late, and the case for them is that
        # their prose is both the most load-bearing in the repo — a txtar's header

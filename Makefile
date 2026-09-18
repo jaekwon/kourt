@@ -248,7 +248,7 @@ scenarios-check:
 # row names a harness that must OBJECT to that row's mutation. Applies each
 # mutation to the tree in place and restores it, so run it on a clean tree.
 mutate: toolchain
-	PATH="$(GNO_STORE):$$PATH" python3 scripts/mutate-parallel.py scripts/mutations-kourtv2.json
+	PATH="$(GNO_STORE):$$PATH" python3 scripts/mutate-parallel.py scripts/mutations-kourtv3.json
 
 # THE GAPS ARE CLAIMS, SO RUN THEM. Every row in the KNOWN-GAPS file asserts that
 # no test can catch it. Until this target existed nothing checked that, and a gap
@@ -259,9 +259,9 @@ mutate: toolchain
 # than of any test.
 gaps: toolchain
 	@PATH="$(GNO_STORE):$$PATH" python3 -c "import json,sys; \
-	  rows=[r for r in json.load(open('scripts/mutations-kourtv2-KNOWN-GAPS.json')) if not r.get('slow')]; \
+	  rows=[r for r in json.load(open('scripts/mutations-kourtv3-KNOWN-GAPS.json')) if not r.get('slow')]; \
 	  print('gaps: %d row(s), %d skipped as slow' % (len(rows), \
-	    len(json.load(open('scripts/mutations-kourtv2-KNOWN-GAPS.json')))-len(rows)), file=sys.stderr); \
+	    len(json.load(open('scripts/mutations-kourtv3-KNOWN-GAPS.json')))-len(rows)), file=sys.stderr); \
 	  json.dump(rows, sys.stdout)" | PATH="$(GNO_STORE):$$PATH" python3 scripts/mutate-parallel.py --shards 4 --expect-survive
 
 # Break each guard on purpose and check IT notices. Periodic rather than

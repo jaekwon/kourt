@@ -63,6 +63,10 @@ TARGETS = [
     {
         "src": os.path.join(REPO, "r/kourtv2"),
         "dest": "examples/gno.land/r/kourt/kourtv2",
+        # BEHAVIOURALLY FROZEN — the mirror of gnoland-1. Its tests may be fixed,
+        # its behaviour may not, and these ceilings never move again; development
+        # is in kourtv3 below. The row stays because the UNWATCHED loop does not
+        # consult EXEMPT: a realm with filetests must carry a budget.
         # WHAT KOURTV2 ACTUALLY IMPORTS. cshares and tickbook were here too, and
         # the import graph says only the V1 court uses those — V1 is not a target
         # here, so both were copied into every run for nothing. mutate.py reached
@@ -186,7 +190,7 @@ TARGETS = [
         # a realm with no filetest at all was invisible to it, and ccwrap was
         # that realm with six exported reads and two render routes.
         "deps": ["checkpoint", "grc20votes", "governor", "twap", "curve"],
-        "realm_deps": ["kourtv2"],
+        "realm_deps": ["kourtv3"],
         "budgets": {
             # None, and measured: enabled/wrappable/token-key/wrap-room and the
             # front page write zero bytes. WrappedSupply and Render(slug) are NOT
@@ -202,7 +206,7 @@ TARGETS = [
         # asks kourtv2 who may set it, so kourtv2's own deps are what it needs
         # staged and none of its own.
         "deps": ["checkpoint", "grc20votes", "governor", "twap", "curve"],
-        "realm_deps": ["kourtv2"],
+        "realm_deps": ["kourtv3"],
         "budgets": {
             # None, and it matters more than the size of this realm suggests.
             # kourt.xyz asks GuildOf for every court on every reconcile, forever,

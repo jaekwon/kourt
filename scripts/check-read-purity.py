@@ -4,7 +4,7 @@ being asked a question.
 
 `mustModRead` exists precisely to state this rule: it is the READ-ONLY
 counterpart of `ensureMod`, so a query that needs a court's moderation state
-panics when there is none instead of creating one. Nine helpers in kourtv2 allocate
+panics when there is none instead of creating one. Nine helpers in kourtv3 allocate
 and persist, and the list is in ALLOCATORS below rather than here so it cannot
 drift from what the check enforces — this sentence said "three" long after there
 were more, which is the same rot the census exists to catch one level down. None
@@ -55,7 +55,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 
 # Helpers that allocate a struct AND persist it into realm state.
 # getPos joins them for the same reason and was found missing by review: it Sets a
@@ -80,7 +80,7 @@ EXPORTED = re.compile(r"^func ([A-Z]\w*)\(([^)]*)\)")
 CROSSING = re.compile(r"\bcur\s+realm\b")
 
 # AND AN EXPORTED READ MUST NOT HAND OUT A POINTER, which is the second half of
-# the same rule and was enforced by nothing. Three places in kourtv2 cite "borrow
+# the same rule and was enforced by nothing. Three places in kourtv3 cite "borrow
 # rule #2" for it — court.gno on /p/ pointers, strips.gno on realm state, and
 # folders.gno most explicitly, at FolderItems: "returns a copy of a folder's
 # claim-ID list (a value slice — never a pointer into realm state, borrow rule
@@ -115,7 +115,7 @@ POINTER_RETURN_OK = {}
 # authority.
 #
 # NARROW ON PURPOSE, AND THE MEASUREMENT IS WHY. The obvious guard — "no pointer to
-# a p/ type in realm state" — would be simply wrong here: kourtv2 holds 33 such
+# a p/ type in realm state" — would be simply wrong here: kourtv3 holds 33 such
 # fields and nearly all are *bptree.BPTree, which is what a tree IS, plus
 # *grc20votes.Ledger, *governor.Governor and *checkpoint.Archive. Writing that
 # census would have meant a 33-entry allowlist and no property. So this pins the one
@@ -129,14 +129,14 @@ POINTER_RETURN_OK = {}
 # THE COUNT IS 2, NOT 4, and how I got that wrong is worth the two lines. A first
 # pass over every realm printed four Ring fields as `claim.gno:34, :35, :81, :82`
 # and I read them as one file — but two of them are in kourtv1/claim.gno and two in
-# kourtv2/claim.gno. The output was BASENAMES, so the directory that distinguished
+# kourtv3/claim.gno. The output was BASENAMES, so the directory that distinguished
 # them was the column not printed. Same shape as `grep -h` defeating a path filter:
 # confirm the instrument before believing its report. kourtv1 is behaviourally
-# frozen and this guard is kourtv2-scoped by design, so its two are out of scope
+# frozen and this guard is kourtv3-scoped by design, so its two are out of scope
 # here rather than uncounted.
 RING_PTR = re.compile(r"^\s*\w+\s+\*twap\.Ring\b", re.M)
 RING_VAL = re.compile(r"^\s*\w+\s+twap\.Ring\b", re.M)
-RING_VAL_N = 2  # kourtv2/claim.gno: oi and yes, both on the pool
+RING_VAL_N = 2  # kourtv3/claim.gno: oi and yes, both on the pool
 # RING_PTR ONLY FIRES ON A DECLARATION THIS TREE DOES NOT HAVE, so blinding it
 # changes nothing and the guard passes either way. RING_VAL is safe -- its count
 # is 2, and blinding that breaks the count. A fixture tests the PATTERN, which is

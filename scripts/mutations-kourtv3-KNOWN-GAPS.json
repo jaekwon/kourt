@@ -1,6 +1,6 @@
 [
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "voteweight.gno",
   "label": "votingWeight: the negative clamp is dropped",
   "find": "\tif w < 0 {\n\t\tw = 0\n\t}\n",
@@ -8,7 +8,7 @@
   "why": "A DELIBERATE SURVIVOR: w is min of two non-negative reads, so the clamp cannot fire and no test can catch its removal. PastVotes returns a checkpointed balance and BalanceOf a live one; neither goes negative \u2014 grc20votes checks sufficiency on every move and nothing burns from a user's balance, which arm 7 of check-epoch-coherence counts. The clamp stays because the thing that would make it reachable is a burn taking coin out from under a holder, and lock.gno's spendable() carries the same defensive clamp for the same anticipated case with a comment saying it is not reachable today. IF THIS COMES BACK CAUGHT, a negative weight has become reachable: promote it and go read arm 7."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "votelock.gno",
   "label": "lockVote: a zero-weight row is recorded instead of skipped",
   "find": "\tif amount <= 0 {\n\t\treturn\n\t}\n",
@@ -16,15 +16,15 @@
   "why": "A DELIBERATE SURVIVOR found by an operator-level sweep of voteweight.gno, votelock.gno and lock.gno \u2014 eleven mechanical mutations of comparison and boolean operators, of which this was the only one to survive. amount is never non-positive here: all three lockVote call sites refuse a non-positive weight before reaching it (the governor's castVote panics on w <= 0, and approve and VoteQuality each panic on both a zero snapshot and a zero live figure), so the guard cannot fire. Its removal would record an open row of weight 0, which contributes nothing to voteLockedOf's max and is cleared by the next prune \u2014 a cleanliness cost, not a safety one, which is why no test sees it. Kept because a lock function that will silently write a meaningless row is a worse primitive than one that will not. IF THIS COMES BACK CAUGHT, some lane now locks a non-positive weight and that lane's own w <= 0 guard is what to read.\n\nVERIFIED AGAIN LATER, and the 'all three call sites' phrasing needed sharpening: two of them refuse the weight THEY pass, and the third refuses a different quantity. modvote.gno and quality.gno both test `w <= 0` on the value handed to lockVote. dispute.gno guards `held := voteCap(...)` and then passes `dw`, which it reads back from the governor after VoteWithCap \u2014 a different number. dw is still positive, but by p/governor's castVote, which panics on `w <= 0` ('no voting power at that epoch') and then takes min(w, cap) with cap = held > 0. So the third site's protection lives in ANOTHER PACKAGE, and the claim is transitive rather than local.\n\nTHAT LAYER IS ITSELF PINNED, which is what makes the transitivity safe to rely on: the main corpus carries `castVote: a zero-weight address may vote` (`if w <= 0` -> `if w < 0`), caught. If that row ever left the corpus, this row would stop being INVALID and become a live survivor with money attached \u2014 a zero-weight vote lock. Call-site COUNT re-measured too: still exactly three, after two new subsystems landed next door."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "emission.gno",
   "label": "accrueSegment: the pause's senior conjunct compares > instead of >=",
   "find": "c.reservoirR() >= c.rMax() && c.cumAccrual >= c.reservedTail",
   "replace": "c.reservoirR() >= c.rMax() && c.cumAccrual > c.reservedTail",
-  "why": "INVALID, NOT A SURVIVOR: the conjunct is implied by the one before it, so the two operators agree on every reachable state. accrueSegment has already returned unless curPeriodBudget > 0, so rMax = rMaxPeriods x curPeriodBudget > 0; the first conjunct then requires reservoirR() > 0, which requires cumAccrual - reservedTail - juniorReserved > 0 through both clamps, hence cumAccrual > reservedTail. MEASURED as well as argued: a probe panicking on the deciding state (first conjunct true AND cumAccrual == reservedTail) fired ZERO times across the whole kourtv2 suite. The conjunct is kept because rMaxPeriods is a dial - at 0 the first conjunct is vacuously true and this becomes the only thing still accruing for a waiting senior. IF THIS EVER COMES BACK CAUGHT, either rMax gained a floor or reservoirR stopped clamping: re-derive the implication before promoting it."
+  "why": "INVALID, NOT A SURVIVOR: the conjunct is implied by the one before it, so the two operators agree on every reachable state. accrueSegment has already returned unless curPeriodBudget > 0, so rMax = rMaxPeriods x curPeriodBudget > 0; the first conjunct then requires reservoirR() > 0, which requires cumAccrual - reservedTail - juniorReserved > 0 through both clamps, hence cumAccrual > reservedTail. MEASURED as well as argued: a probe panicking on the deciding state (first conjunct true AND cumAccrual == reservedTail) fired ZERO times across the whole kourtv3 suite. The conjunct is kept because rMaxPeriods is a dial - at 0 the first conjunct is vacuously true and this becomes the only thing still accruing for a waiting senior. IF THIS EVER COMES BACK CAUGHT, either rMax gained a floor or reservoirR stopped clamping: re-derive the implication before promoting it."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "emission.gno",
   "label": "PullSenior: a zero payment is paid, emitted and counted",
   "find": "\tif pay <= 0 {\n\t\treturn 0\n\t}",
@@ -32,7 +32,7 @@
   "why": "VALID BUT UNREACHABLE BY ANY HARNESS THIS REPO HAS, which is a different thing from a survivor. pay is never negative (covered is monotone in cumAccrual and clamped to the amount, and paid only ever rises to meet it), so the guard fires exactly at pay == 0. Dropping it changes NO state: e.paid += 0, seniorOwed -= 0, seniorPaid += 0, mintEmission returns on its own amount <= 0 guard, and the function returns 0 either way. The single difference is a spurious SeniorPaid event carrying paid=0 - and events are exactly what emission.gno's header says clients index to build the 'what am I owed' view, so the noise is real. THE REASON THIS ROW GIVES CHANGED ONCE THE EVENT FACILITY LANDED, and the old one is kept here because it was the wrong reason: it said no event accessor exists anywhere. A _test.gno still cannot read events, but a _filetest.gno CAN - the `Events:` directive matches the run's whole event stream, and z_events_filetest.gno has used it since the mod-log commit. Two candidate objections were measured and BOTH failed: the event block would not be unwieldy (the realm has 11 chain.Emit sites in total and quality.gno, openrewards.gno and answer.gno emit nothing at all, so a senior path emits a handful), and a pull needs no elapsed time either (right after enqueueSenior, start = reservedTail + juniorReserved >= cumAccrual, so the FIRST pull already pays zero). WHAT ACTUALLY BLOCKS IT is the height. Every route into enqueueSenior - the dispute comp, the open the rewards carrot, the flag bounty - passes a voting or settlement window, and a filetest cannot advance the clock: EnableTestClock is deployer-gated and a filetest is never the deployer, which z_testclock_filetest.gno asserts as its own subject ('only the deployer may drive the test clock'). So no senior entitlement can be brought into existence inside a filetest, and the one harness that IS the deployer - the txtar suite - cannot see events: no txtar in gnoland/testdata asserts one and the runner does not surface them. Kept because a crank anyone may call must not emit a payment that did not happen. PROMOTE THIS when either lever appears: a filetest able to reach a senior entitlement at a fixed height, or event assertions in the txtar harness (which make-check now runs)."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "openrewards.gno",
   "label": "WithdrawBonus: the zero-conviction guard needs BOTH to be zero",
   "find": "\tif convCC <= 0 || cs.winPoolConvCC <= 0 {",
@@ -40,7 +40,7 @@
   "why": "INVALID BY UNREACHABILITY, not a survivor. The two forms can only differ where exactly one operand is non-positive. convCC == 0 with a positive pool: the mutant proceeds and mulDiv128 returns 0, capBonus floors it at 0, mintEmission returns on its own guard - the same 0. convCC > 0 with a zero pool: the mutant divides by zero, but that state cannot exist, because the caller has already panicked unless side == provisional, so this position's conviction is PART of winPoolConvCC (= midGross of the winning side). MEASURED both ways: a probe panicking on `convCC > 0 && winPoolConvCC <= 0` fired ZERO times across the suite, and a companion probe on `convCC > 0` fired, so the line is genuinely exercised and the zero is not vacuous. Kept because it is the only thing standing between a zero-conviction winning side and a division by zero when BOTH are zero - which is reachable, and which both forms handle.\n\nAND THE PREMISE IS PINNED, named here so the chain does not have to be re-derived: this row is invalid because mintEmission returns on its own `amount <= 0` guard, and that guard carries TWO caught rows in the main corpus \u2014 'mintEmission: a non-positive amount is minted' and 'mintEmission: a zero mint is passed to the ledger'. An invalidity claim resting on an UNPINNED guard is a live survivor waiting for one refactor; this one is held."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "openrewards.gno",
   "label": "PullCarrot: the zero-weight guard needs BOTH to be zero",
   "find": "\tif w <= 0 || denom <= 0 {",
@@ -48,7 +48,7 @@
   "why": "INVALID BY UNREACHABILITY, same shape as the WithdrawBonus guard above. w == 0 with a positive denominator gives share 0 through mulDiv128 and returns 0 at the `share <= 0` floor either way. w > 0 with a zero denominator would divide by zero and cannot happen: on the decided path denom is cs.carrotDenom, the winning side's tally on the deciding round, and the block above has already panicked unless this voter's recorded choice EQUALS carrotChoice, so w is one of that sum's terms; on the conclusive path denom is conclusiveTurnout and w is this voter's weight within it. MEASURED: a probe on `w > 0 && denom <= 0` fired ZERO times, and a companion probe on `w > 0` fired, so the line is exercised. Kept for the reachable both-zero case.\n\nAND THE PREMISE IS NOW PINNED \u2014 it was not when this row was written, which is why the chain is spelled out. The `share <= 0` floor this row defers to had NO corpus row, while both of its neighbours did (the pool clamp, and the P2 sybil clamp twice). It now carries 'PullCarrot: a zero share is enqueued instead of returning nothing', caught by TestOpenRewardsLowTierZeroDrawCarrotStillPays.\n\nThat floor is not merely defensive: enqueueSenior PANICS on a non-positive amount rather than returning, so without the floor a voter whose share rounds to zero gets an abort instead of a graceful 0 \u2014 and the P2 clamp two lines above can set share to `b0/2 - 1`, which is zero at b0 == 2. The zero-share path is reachable by arithmetic."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "openrewards.gno",
   "label": "AuthorBonus: the second seeded gate is dropped",
   "find": "\tif cs.seeded {\n\t\tmintEmission(c, who, 0)\n\t\treturn 0\n\t}\n",
@@ -56,7 +56,7 @@
   "why": "A DELIBERATE SURVIVOR, and its own comment already says why: the draw is zeroed at open the rewards, so this is belt-and-braces, asserted at the payout site because that is where a future change would most plausibly break it. It cannot fire today - drawAuthor is 0 on every seeded claim, so dropping the gate falls through to capBonus(0, ...) = 0 and pays the same nothing. MEASURED: a probe panicking on `cs.seeded && cs.drawAuthor != 0` fired ZERO times across the suite, while a companion probe on `cs.seeded` alone fired, so AuthorBonus IS reached with a seeded claim and the first probe's silence is about the state, not about coverage. The open the rewards-time gate that makes it redundant IS pinned, by both `the author slice is zeroed for every UNSEEDED claim` and `P7: the author slice is not paid`. IF THIS COMES BACK CAUGHT, a seeded claim now carries an author draw: read I5 in MODERATION.md section 8 before promoting it."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "stakeseries.gno",
   "label": "ClaimSeries: the merge advances the side that did NOT change at this epoch",
   "find": "\t\tif i < len(ys) && ys[i].e == e {",
@@ -65,7 +65,7 @@
   "slow": true
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "modrender.gno",
   "label": "qualifiedSymbol: a court symbol is rendered unsanitised",
   "find": "\treturn platformTicker + \":\" + sanitize.InlineText(c.coin.Symbol())",
@@ -73,25 +73,25 @@
   "why": "INVALID BY ALPHABET, not a survivor. qualifiedSymbol wraps the coin symbol in InlineText and the wrap cannot change the output: courtSymbol is strings.ToUpper(slug), and mustSlug validates a slug as lowercase letters, digits and hyphens, 1..11 characters, so a symbol's alphabet is [A-Z0-9-] and holds no markdown metacharacter for a sanitiser to act on. THE PREMISE IS PINNED rather than argued: TestACourtSymbolsAlphabetIsWhatMakesItsSanitiserRedundant asserts the alphabet directly, so if slug validation ever widens, that test goes red and this row must be promoted. Kept because the render layer's rule is that user text is sanitised wherever it is printed, and a surface exempted by an upstream invariant should still read like the others - the alternative is a reader having to re-derive the slug charset to know why one call is missing."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "testclock.gno",
   "label": "EnableTestClock: a used realm is refused only if BOTH claims and coin exist",
   "find": "\tif m.nextID > 1 || m.coin.TotalSupply() > 0 {",
   "replace": "\tif m.nextID > 1 && m.coin.TotalSupply() > 0 {",
-  "elsewhere": "harness/gnoland/testdata/kourtv2_usedrealm_seeded.txtar",
+  "elsewhere": "harness/gnoland/testdata/kourtv3_usedrealm_seeded.txtar",
   "why": "UNREACHABLE FROM THIS SUITE BY CONSTRUCTION, and covered by txtar. The usage gate sits behind EnableTestClock's court check, and by the time any gno test runs some earlier test has created a court - so a SUCCESSFUL arming, and therefore the usage gate, cannot be reached here at all. testclock.gno's own scope note says this and names the two txtars that isolate one arm each (this `elsewhere` can hold one path, and the guard checks it resolves, so the second is named here): seeded gives the meta court two claims with the coin supply still zero (and asserts CourtCount()==1, so the count arm is not what refuses), coin does the reverse. Both assert the 'has been used' message from the deployer's own key, which only a txtar can be."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "testclock.gno",
   "label": "EnableTestClock: the disclosure does not outlive sealing",
   "find": "\ttcEverArmed = true         // never cleared again, not even by sealing\n",
   "replace": "\n",
-  "elsewhere": "harness/gnoland/testdata/kourtv2_testclock.txtar",
-  "why": "UNREACHABLE FROM THIS SUITE, and now covered by txtar - it was covered NOWHERE until this row was written. `tcEverArmed = true` is written only by the arming path, which no gno test can complete (a court always exists by then), and every test that reads TestClockFabricated sets the flag BY HAND - so the write itself had no observer. kourtv2_testclock.txtar is the one harness where arming succeeds; it now asserts TestClockFabricated() is true after arming AND still true after sealing. MEASURED: deleting the line fails that script at the new assertion. The sealing half is also held here by TestSealingKeepsTheDisclosure, with the flag set by hand."
+  "elsewhere": "harness/gnoland/testdata/kourtv3_testclock.txtar",
+  "why": "UNREACHABLE FROM THIS SUITE, and now covered by txtar - it was covered NOWHERE until this row was written. `tcEverArmed = true` is written only by the arming path, which no gno test can complete (a court always exists by then), and every test that reads TestClockFabricated sets the flag BY HAND - so the write itself had no observer. kourtv3_testclock.txtar is the one harness where arming succeeds; it now asserts TestClockFabricated() is true after arming AND still true after sealing. MEASURED: deleting the line fails that script at the new assertion. The sealing half is also held here by TestSealingKeepsTheDisclosure, with the flag set by hand."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "stakeindex.gno",
   "label": "StakedSize: the address guard is dropped",
   "find": "func StakedSize(courtSlug string, who address) int {\n\tif !who.IsValid() {\n\t\treturn 0\n\t}\n",
@@ -99,7 +99,7 @@
   "why": "INVALID BY MASKING, and the load-bearing half is pinned. StakedSize's `!who.IsValid()` early return cannot change any answer while stakeIdxMine stands: the walk only accepts a key whose length is exactly len(prefix)+8, so a short or malformed `who` matches nothing and the count is 0 with or without the guard, and a `who` of an address's length that is not a real address matches no key either because no such key was ever written. Dropping it therefore reports SURVIVED. MEASURED: dropping it ALONE changes nothing; dropping it TOGETHER with weakening stakeIdxMine to `>=` fails TestNoReadAnswersForANonAddress and TestTheStakeIndexPacksAndOrdersAcrossBuckets - so the pair has teeth and stakeIdxMine is the half that carries them, which its own row pins. Kept because an exported read should refuse junk at its entry rather than rely on a key-length invariant three functions down, and because the same guard in StakedPage is what the junk-input sweep asserts across all eighteen address readers."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "stakeindex.gno",
   "label": "StakedPage: the read ALLOCATES a position instead of looking one up",
   "find": "\t\t\tif pv := cs.stakers.Get(posKey(who, side)); pv != nil {\n\t\t\t\tpos := pv.(*stakePos)\n\t\t\t\tlive = pos.stake\n\t\t\t\tconv = convPreviewCC(cs, pos, acc)\n\t\t\t}",
@@ -108,13 +108,13 @@
   "elsewhere": "scripts/check-read-purity.py"
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "testclock.gno",
   "label": "EnableTestClock: a realm with one user court may still be armed",
   "find": "\tif CourtCount() > 1 {",
   "replace": "\tif CourtCount() > 2 {",
-  "elsewhere": "harness/gnoland/testdata/kourtv2_usedrealm_seeded.txtar",
-  "why": "UNPINNABLE BY THIS SUITE FOR A COUNTING REASON, and the corpus delta pass is what found it. The guard is CourtCount() > 1; widening it to > 2 still REFUSES in the gno suite, because by the time any test runs the realm holds dozens of courts and every small threshold is already exceeded. So a test can assert the refusal - and tcbase_test.gno does - without being able to discriminate the threshold at all. Only a harness holding exactly TWO courts can, and kourtv2_usedrealm_seeded.txtar is that harness: it creates one user court beside meta and asserts the message. MEASURED both ways: the mutation passes the whole kourtv2 suite (44.6s, ok) and fails that txtar at line 123 with `no match for this realm already has courts found in stderr`. This row was recorded as CAUGHT when it was written, on a FILTERED run where only two courts existed - which is exactly the mis-attribution a full pass exists to catch."
+  "elsewhere": "harness/gnoland/testdata/kourtv3_usedrealm_seeded.txtar",
+  "why": "UNPINNABLE BY THIS SUITE FOR A COUNTING REASON, and the corpus delta pass is what found it. The guard is CourtCount() > 1; widening it to > 2 still REFUSES in the gno suite, because by the time any test runs the realm holds dozens of courts and every small threshold is already exceeded. So a test can assert the refusal - and tcbase_test.gno does - without being able to discriminate the threshold at all. Only a harness holding exactly TWO courts can, and kourtv3_usedrealm_seeded.txtar is that harness: it creates one user court beside meta and asserts the message. MEASURED both ways: the mutation passes the whole kourtv3 suite (44.6s, ok) and fails that txtar at line 123 with `no match for this realm already has courts found in stderr`. This row was recorded as CAUGHT when it was written, on a FILTERED run where only two courts existed - which is exactly the mis-attribution a full pass exists to catch."
  },
  {
   "pkg": "curve",
@@ -133,7 +133,7 @@
   "why": "UNREACHABLE, by an argument the arithmetic makes and a probe confirms. The up-loop's `cst > coin` narrowed to `>=` can only matter when the isqrt estimate lands BELOW the true answer AND that answer's cost equals the payment exactly. Those are mutually exclusive: if coin == Cost(from, delta) = ceil((s1^2 - from^2)/2d) with s1 = from+delta, then 2d*coin >= s1^2 - from^2, so from^2 + 2d*coin >= s1^2 and isqrt of that is at least s1 - the estimate is never below the answer at an exact payment. PROBED as well as argued: 4 values of d x 60 starts x 8 spans, zero cases where the estimate undershot at an exact price. Kept because the loop is also the repair for the down-loop's overshoot (see the row above), where the comparison it makes is load-bearing."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "stakeseries.gno",
   "label": "seriesRowCap: the trim keeps one row more than the cap",
   "find": "if len(rows) > seriesRowCap {",
@@ -141,7 +141,7 @@
   "why": "VALID AND DELIBERATELY UNPINNED. ClaimSeries unions the two capped sides and trims the result with `if len(rows) > seriesRowCap`; narrowing it to `>=` trims a 400-row union to its last 400 - a no-op slice - while setting more = true, so a client is told older change points were dropped when none were. THE OBSTACLE IS THAT A FIXTURE CANNOT PROVE IT HIT THE BOUNDARY. The only observable is the `more` field, and it needs the union to be EXACTLY seriesRowCap; but the intact code trims any union above the cap down to the cap, so a returned count of 400 is ambiguous between 'was 400, untrimmed' and 'was 401+, trimmed'. Counting the output cannot distinguish them, and computing the pre-trim union in the test would restate the production formula this suite keeps single-sited. The emit-side cap IS pinned (see the main-corpus row), so what is unpinned is one wrong boolean on a read whose numbers are all correct. PROMOTE IT if the union size ever becomes observable - a returned pre-trim count, or a trim that reports how many it took."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "folders.gno",
   "label": "OrderFolders: the input-length bound is exclusive by one",
   "find": "if len(ids) > maxFolders*21 {",
@@ -157,7 +157,7 @@
   "why": "VALID BUT OBSERVABLE ONLY THROUGH AN EVENT, the same class as PullSenior's zero payment. Governor.Offer uses `who` exactly once, at line 340 - `\"offerer\", who.String()` inside the emission - and nothing else reads it: a name once offered is bound to its code forever regardless of who offered it. So substituting the realm's own address changes one attribute of one event and no state, and no _test.gno can read events. The filetest `Events:` directive can, but govern's offer path runs through z_offer_filetest.gno whose subject is the offer/adopt flow; asserting an offerer attribute there would pin this. PROMOTE IT if that filetest gains an Events block."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "court.gno",
   "label": "mustInvariants: a deploy gate is loosened so it can never fire",
   "find": "\tif budgetWeeklyBps*52 > 2000 {",
@@ -165,7 +165,7 @@
   "why": "UNPINNABLE BY CONSTRUCTION, IN BOTH DIRECTIONS, and this row stands for the whole class rather than thirteen copies of it. mustInvariants and the tier loop beside it compare CONSTANTS ONLY, at init. Measured: loosening this gate so it can never fire leaves the suite at exit 0 with ZERO failing tests, because the constants satisfy the tighter bound anyway and the gate never fired in the first place. Tightening it instead panics at init, so the realm does not load and the run exits 1 with zero NAMED failures - every test dies and none discriminates, which is a broken measurement rather than a catch. The same argument covers court.gno's other twelve constant gates (the curveCap bounds, the slash-multiple and dispute-arm checks, the 93-way split, the maxBondBps and slashXBps relations, the maxAnswerBondBps drift check, and the meta/ordinary floor loop). Their value is that a future constant change cannot ship silently - which is exactly what a deploy gate is for, and exactly what mutation testing cannot see. It also explains court.gno's low row density: 43 operator lines read as uncovered and most of them are these."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "standing.gno",
   "label": "creditDisputeResolved: a quorum-less default (decidedRounds == 0) earns dispute standing",
   "find": "\tif cs.decidedRounds <= 0 {\n\t\treturn\n\t}\n",
@@ -173,7 +173,7 @@
   "why": "A DELIBERATE SURVIVOR: structurally unkillable: both arms of creditDisputeResolved already imply a decided round \u2014 provisional differs from answer only at dispute.gno's overturn (two lines above decidedRounds++), and credEligible is written only in the upheld branch (likewise). Kept because that redundancy lives in another file and nothing enforces it from here."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "openrewards.gno",
   "label": "HOOK: the conviction credit moves BELOW the zero-pay early return, so a rounded-to-zero winner earns nothing",
   "find": "\tcreditWinConviction(c, cs, who, p)\n\tif convCC <= 0 || cs.winPoolConvCC <= 0 {\n\t\treturn 0\n\t}\n",
@@ -181,7 +181,7 @@
   "why": "A DELIBERATE SURVIVOR: behaviour-neutral: the early return fires only when convCC <= 0 or winPoolConvCC <= 0, and the second cannot happen while the first does not \u2014 winPoolConvCC is convToCC of the WINNING SIDE's pool integral and a drawing staker's convCC is convToCC of their own position on that same side, so pool >= individual and convToCC is monotone. When convCC <= 0 the credit is scaleBps(<=0) = 0, which creditStanding refuses on `amount <= 0`. So placement relative to THIS return is unobservable; placement relative to capBonus is the part that matters, and a separate row covers it."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "board.gno",
   "label": "boardKeyMine: the prefix length guard is gone",
   "find": "func boardKeyMine(pre, k string) bool { return len(k) == len(pre)+8 }",
@@ -189,7 +189,7 @@
   "why": "A DELIBERATE SURVIVOR: redundant while rows and children live in separate trees \u2014 boardKids holds only 16-byte parent|row keys whose first eight bytes ARE the parent, so HasPrefix alone admits exactly that parent's children. It guards the MERGE: fold rows and children into one tree and be(N) becomes a prefix of row N's own key, so a scan for N's children returns N. Kept as one definition so that merge cannot half-happen."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "boardmod.gno",
   "label": "SlashStanding: the ratchet only lowers",
   "find": "\tif want := levelFloor(c, target); r.score > want {\n\t\tr.score = want\n\t}\n",
@@ -197,7 +197,7 @@
   "why": "UNREACHABLE BY PROOF, not by missing coverage. A slash's target is always strictly below the address's current level, so levelFloor(target) < levelFloor(level) <= score and the conditional never fails. It is kept rather than simplified to a bare assignment because passHeld ALREADY makes postLevel over-report for a zero score, and one more floor of that kind would turn an unconditional assignment into a moderator-reachable GRANT of standing. The mutant is therefore equivalent today and dangerous tomorrow; the guard stays and this row records why nothing can catch it."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "bucketAt: a zero rate grants nothing",
   "find": "\tif rate <= 0 {\n\t\treturn 0, lastRefill\n\t}\n",
@@ -205,7 +205,7 @@
   "why": "EQUIVALENT BY PROOF. rate<=0 happens only at level 0. With lastRefill==0 the first-poster arm returns rate, which is 0. With lastRefill set, gain is (now-last)*0/86400 = 0, tokens is then capped at rate = 0, and stamp is unchanged. Both arms therefore return (0, lastRefill) with the guard deleted. It is kept as the statement that a zero rate is a real state rather than an arithmetic accident."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "posting.gno",
   "label": "passPriceFor: the lid reads the COURT's ladder, not the realm default",
   "find": "\tif lid := sup * ladderFor(c).t3Bps / 10_000 / passPriceOfT3; p > lid {",
@@ -213,7 +213,7 @@
   "why": "EQUIVALENT AT EVERY REACHABLE CONFIGURATION, and live in the next one. lid = sup*t3/1e6 and p_bps = sup/1e4 at passPriceBps 1, so lid > p_bps exactly when t3 > 100 and mustLadder already refuses t3 < 100 \u2014 the clamp never changes an answer today, whichever ladder it reads. It becomes the only thing carrying \u00a716 the moment \u00a715.3's per-court passPriceBps lands, because mustLadder would still be comparing against the realm default. See TestTheSixteenRelationHoldsAtEveryLadderSetting."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "board.gno",
   "label": "renderBoardOne: the author address is escaped",
   "find": "\tvar b strings.Builder\n\tb.WriteString(\"---\\n\\n**\" + sanitize.InlineText(r.author.String()) + \"**\")\n\tfor _, badge",
@@ -221,7 +221,7 @@
   "why": "EQUIVALENT BY THE ADDRESS TYPE. A bech32 address is 'g1' followed by lowercase alphanumerics, so it contains no CommonMark metacharacter and InlineText cannot change it. Every address the board prints comes from cur.Previous().Address() and has passed IsValid(), so no test can distinguish the escape from its absence. Kept rather than deleted: it costs nothing, it is what every other address print in this realm does, and it is the containment if an address value ever reaches a page without having been validated. Note the same is NOT true of the other InlineText calls nearby \u2014 a claim title and a moderation tombstone are free text and their escapes ARE killable."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "board.gno",
   "label": "writeBoardReplies: a reply's author address is escaped",
   "find": "b.WriteString(\"> **\" + sanitize.InlineText(r.author.String()) + \"**\")",
@@ -229,7 +229,7 @@
   "why": "EQUIVALENT BY THE ADDRESS TYPE. A bech32 address is 'g1' followed by lowercase alphanumerics, so it contains no CommonMark metacharacter and InlineText cannot change it. Every address the board prints comes from cur.Previous().Address() and has passed IsValid(), so no test can distinguish the escape from its absence. Kept rather than deleted: it costs nothing, it is what every other address print in this realm does, and it is the containment if an address value ever reaches a page without having been validated. Note the same is NOT true of the other InlineText calls nearby \u2014 a claim title and a moderation tombstone are free text and their escapes ARE killable."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "board.gno",
   "label": "scoreIndexDrop: the stored key is cleared, so a later drop cannot remove a stranger",
   "find": "\tcs.boardScore.Remove(r.scoreKey)\n\tr.scoreKey = \"\"\n",
@@ -237,7 +237,7 @@
   "why": "EQUIVALENT BY KEY UNIQUENESS. Leaving scoreKey set makes a second drop call Remove() a key that is already absent, which is a no-op \u2014 and it can never hit ANOTHER row's entry, because the key is beInv(score)+beInv(rowID) and rowID is unique per claim, so no two rows ever share a key. Kept because it is what makes drop idempotent by state rather than by accident, and the early-out above it reads that field."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "board.gno",
   "label": "scoreIndexDrop: it removes the STORED key, not a recomputed one",
   "find": "\tcs.boardScore.Remove(r.scoreKey)\n",
@@ -245,7 +245,7 @@
   "why": "EQUIVALENT UNDER THE CURRENT SINGLE SCORE WRITER, and the guard is the reason that stays safe. r.score is written in exactly one place (UpvoteComment) and the drop there runs BEFORE the mutation, so the stored key and a recomputed one are identical at that moment. They diverge the instant anyone writes `r.score += w` before dropping: the stored key still names the entry that exists, a recomputed one names an entry that does not, and the old row is orphaned in the index at a stale rank. The field is the defence against that ordering, which is why it is stored at all."
  },
  {
-  "pkg": "kourtv2",
+  "pkg": "kourtv3",
   "file": "boardmod.gno",
   "label": "UnfreezeBoard: the undo leaves the wall-clock stamp behind",
   "find": "\tlifted.frozenUntilTime = 0",

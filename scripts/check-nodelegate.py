@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Trip if kourtv2 gains delegation while its vote weight is floored by own balance.
+"""Trip if kourtv3 gains delegation while its vote weight is floored by own balance.
 
-WHY THIS EXISTS. Vote weight in kourtv2 is
+WHY THIS EXISTS. Vote weight in kourtv3 is
 
     w = min( PastVotes(who, Q), BalanceOf(who) )
 
 and those two readings are NOT the same quantity in general. `PastVotes` is
 delegation-aware — grc20votes credits an account with every balance delegated to
 it — while `BalanceOf` is strictly the address's own coin. Today the two agree in
-kourtv2 for one reason and one only: **kourtv2 exposes no way to delegate**, so
+kourtv3 for one reason and one only: **kourtv3 exposes no way to delegate**, so
 every account is self-delegated and `PastVotes(who, Q)` is exactly who's own past
 balance.
 
-The moment kourtv2 exposes delegation, the ceiling starts counting coin the voter
+The moment kourtv3 exposes delegation, the ceiling starts counting coin the voter
 was lent the say over while the floor counts only coin they hold, so **every
 delegatee is silently docked to their own balance** — a delegate holding nothing
 and trusted with a million votes gets zero. Nothing else in the tree would
@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-KOURTV2 = ROOT / "r" / "kourtv2"
+KOURTV3 = ROOT / "r" / "kourtv3"
 GRC20VOTES = ROOT / "p" / "grc20votes"
 GOVERN = ROOT / "r" / "govern"
 
@@ -58,8 +58,8 @@ FLOOR_SITES = 1  # voteweight.gno:votingWeight
 CAP_CALL = re.compile(r"c\.gov\.VoteWithCap\(")
 CAP_SITES = 1  # dispute.gno
 
-# A delegation mutator reachable from kourtv2 — either a call into the ledger's
-# own Delegate, or an exported kourtv2 entrypoint that offers it.
+# A delegation mutator reachable from kourtv3 — either a call into the ledger's
+# own Delegate, or an exported kourtv3 entrypoint that offers it.
 CALLS_DELEGATE = re.compile(r"\.Delegate\(")
 # ZERO IS THE HEALTHY ANSWER: no realm file should call .Delegate( at all, so a
 # census cannot tell a clean tree from a blinded pattern. Only a fixture can.
@@ -118,40 +118,40 @@ def main():
         return 1
 
     # ARM 3 — the floor exists, at its pinned count.
-    v2 = gno_files(KOURTV2)
+    v2 = gno_files(KOURTV3)
     if not v2:
-        print(f"check-nodelegate: no .gno files under {KOURTV2}; the layout moved "
+        print(f"check-nodelegate: no .gno files under {KOURTV3}; the layout moved "
               f"and this check is measuring nothing.", file=sys.stderr)
         return 1
     floors = sum(len(FLOOR.findall(p.read_text())) for p in v2)
     if floors != FLOOR_SITES:
-        hits.append(f"[floor-count] kourtv2 has {floors} own-balance vote floor(s), "
+        hits.append(f"[floor-count] kourtv3 has {floors} own-balance vote floor(s), "
                     f"expected {FLOOR_SITES} — if the floor moved, this guard's "
                     f"premise moved with it")
     caps = sum(len(CAP_CALL.findall(p.read_text())) for p in v2)
     if caps != CAP_SITES:
-        hits.append(f"[cap-count] kourtv2 hands the governor a live cap at {caps} "
+        hits.append(f"[cap-count] kourtv3 hands the governor a live cap at {caps} "
                     f"site(s), expected {CAP_SITES} — same premise, reached through "
                     f"VoteWithCap rather than a local clamp")
 
-    # ARM 4 — nothing in kourtv2 delegates, and nothing offers to.
+    # ARM 4 — nothing in kourtv3 delegates, and nothing offers to.
     for p in v2:
         src = p.read_text()
         for m in CALLS_DELEGATE.finditer(src):
             line = src[:m.start()].count("\n") + 1
-            hits.append(f"[delegates] kourtv2/{p.name}:{line} calls Delegate — the "
+            hits.append(f"[delegates] kourtv3/{p.name}:{line} calls Delegate — the "
                         f"vote ceiling is delegation-aware and the floor is not, so "
                         f"every delegatee is docked to their own balance")
         # A FLOOR, because this ENUMERATES before it filters. Blinding
         # EXPORTED_FUNC finds no exported functions, so none can be a
         # delegation entrypoint and the arm passes having looked at nothing.
-        # Measured: 296 exported functions across 45 kourtv2 files.
+        # Measured: 296 exported functions across 45 kourtv3 files.
         exported_seen += len(EXPORTED_FUNC.findall(src))
         for m in EXPORTED_FUNC.finditer(src):
             if "delegate" not in m.group(1).lower():
                 continue
             line = src[:m.start()].count("\n") + 1
-            hits.append(f"[delegates] kourtv2/{p.name}:{line} exports {m.group(1)} "
+            hits.append(f"[delegates] kourtv3/{p.name}:{line} exports {m.group(1)} "
                         f"— a delegation entrypoint, see above")
 
     # ARM 5 — govern's exemption is conditional, so check the condition.
@@ -167,7 +167,7 @@ def main():
         for h in hits:
             print(f"  {h}", file=sys.stderr)
         print("\nPastVotes counts every balance delegated to an address; BalanceOf "
-              "counts only its own. They agree in kourtv2 solely because nothing "
+              "counts only its own. They agree in kourtv3 solely because nothing "
               "there can delegate. If delegation is wanted, the floor has to become "
               "delegation-aware in the same change — read VOTEFLOOR.md first.",
               file=sys.stderr)
@@ -176,13 +176,13 @@ def main():
     # A FLOOR, at function level and AFTER the scan that fills it. Blinding
     # EXPORTED_FUNC finds no exported function, so none can be judged a
     # delegation entrypoint and the arm passes having looked at nothing.
-    # Measured: 296 exported functions across 45 kourtv2 files.
+    # Measured: 296 exported functions across 45 kourtv3 files.
     if exported_seen == 0:
         print("check-nodelegate: EXPORTED_FUNC matched no exported function at "
               "all, so nothing could be judged a delegation entrypoint.",
               file=sys.stderr)
         return 1
-    print(f"check-nodelegate: {len(v2)} kourtv2 files, no delegation reachable, "
+    print(f"check-nodelegate: {len(v2)} kourtv3 files, no delegation reachable, "
           f"{floors} own-balance vote floor(s) + {caps} capped call(s) pinned. "
           f"The ceiling and the floor "
           f"measure the same coin.")

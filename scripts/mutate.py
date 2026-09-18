@@ -45,16 +45,16 @@ Usage — a JSON list of mutations on stdin, each applied and reverted in turn:
     ]
     EOF
 
-A saved batch for the kourtv2 money path lives at scripts/mutations-kourtv2.json:
+A saved batch for the kourtv3 money path lives at scripts/mutations-kourtv3.json:
 
 Everything in that batch is CAUGHT, and it is meant to stay that way: a batch with
 a standing survivor is a batch whose output people learn to skim. Guards that are
-known to be unpinned live in scripts/mutations-kourtv2-KNOWN-GAPS.json instead —
+known to be unpinned live in scripts/mutations-kourtv3-KNOWN-GAPS.json instead —
 every entry there survives, deliberately, and the file shrinks as tests are
 written. Run it the same way; a CAUGHT result means one can move to the main batch.
 
 
-    python3 scripts/mutate.py < scripts/mutations-kourtv2.json
+    python3 scripts/mutate.py < scripts/mutations-kourtv3.json
 
 Needs a gno toolchain. PKGS below lists every tree this can stage or mutate.
 
@@ -120,19 +120,19 @@ PKGS = {
     # rows, measured 8/8 caught, which is what says its five tests have teeth.
     "offerer": (os.path.join(REPO, "r/offerer"),
                 "examples/gno.land/r/kourt/offerer"),
-    # kourtv2 and the packages it needs staged. Added after this harness spent a
+    # kourtv3 and the packages it needs staged. Added after this harness spent a
     # whole session unusable against the realm that holds almost every guard worth
     # breaking: the money-path work (the slash reserve, the quality ratchet, the
     # carrot withholding) all lives here, and every one of those guards had to be
     # mutated BY HAND because there was no entry for it. That is the same shape as
-    # the isolation guard staging 3 p/ + 2 r/ and not kourtv2 — a check that
+    # the isolation guard staging 3 p/ + 2 r/ and not kourtv3 — a check that
     # measures everything except the thing most worth measuring.
-    "kourtv2": (os.path.join(REPO, "r/kourtv2"),
-                "examples/gno.land/r/kourt/kourtv2"),
-    # The packages kourtv2 actually imports. NOT cshares or tickbook: the import graph
+    "kourtv3": (os.path.join(REPO, "r/kourtv3"),
+                "examples/gno.land/r/kourt/kourtv3"),
+    # The packages kourtv3 actually imports. NOT cshares or tickbook: the import graph
     # says only the V1 court realm uses those, and V1 is deliberately absent here, so
     # staging them added two suites to every mutation for nothing. (v0.57 claimed the
-    # realm-test set's seven were all needed; that was wrong — kourtv2's imports are
+    # realm-test set's seven were all needed; that was wrong — kourtv3's imports are
     # curve, governor, grc20votes and twap, plus checkpoint transitively.)
     #
     # THE EXCLUSION IS A COST DECISION, NOT A VERDICT ON THOSE SUITES, and the
@@ -171,7 +171,7 @@ PKGS = {
     # ccwrap, added when it stopped being a pure adapter. It now carries a LIVENESS
     # bound — the wrap cap that keeps a court's own electorate able to clear the
     # bars quoted as a share of votable — and a guard with no mutation coverage is
-    # the shape the kourtv2 note above is about. It imports kourtv2, which is
+    # the shape the kourtv3 note above is about. It imports kourtv3, which is
     # already staged.
     "ccwrap": (os.path.join(REPO, "r/ccwrap"),
                "examples/gno.land/r/kourt/ccwrap"),
@@ -186,17 +186,17 @@ PKGS = {
 # guard in the source. Staging is unchanged: every tree is still staged, because the
 # imports must resolve whatever is being mutated.
 OBSERVERS = {
-    "kourtv2":    ["kourtv2"],
+    "kourtv3":    ["kourtv3"],
     # ccwrap only: nothing imports it, so no other suite can observe its
     # mutations. Listing more would let an unrelated failure read as a catch.
     "ccwrap":     ["ccwrap"],
     "govern":     ["govern"],
     "offerer":    ["offerer", "govern"],
-    "twap":       ["twap", "kourtv2"],
-    "curve":      ["curve", "kourtv2"],
-    "grc20votes": ["grc20votes", "kourtv2", "govern"],
-    "governor":   ["governor", "kourtv2", "govern"],
-    "checkpoint": ["checkpoint", "grc20votes", "governor", "govern", "kourtv2"],
+    "twap":       ["twap", "kourtv3"],
+    "curve":      ["curve", "kourtv3"],
+    "grc20votes": ["grc20votes", "kourtv3", "govern"],
+    "governor":   ["governor", "kourtv3", "govern"],
+    "checkpoint": ["checkpoint", "grc20votes", "governor", "govern", "kourtv3"],
 }
 
 
@@ -227,7 +227,7 @@ SUITE_TIMEOUT = int(os.environ.get("MUTATE_SUITE_TIMEOUT", "600"))
 # RUNTIME means the mutant ran and something objected — which is a CATCH, and must
 # not be mistaken for a build failure. gnoUnknownError is how a realm panic at init
 # surfaces, deploy invariants included: the first attempt at this fix matched every
-# gno*Error and threw away a genuine catch where kourtv2's own flood invariant had
+# gno*Error and threw away a genuine catch where kourtv3's own flood invariant had
 # fired. Measured, on the P-CONST grc20votes Bps row.
 # Read from gno's own enumeration — gnovm/cmd/gno/common.go, the gnoCode consts —
 # rather than from whichever ones happened to turn up here. The first version of this
@@ -269,10 +269,10 @@ def mutant_builds(root, pkg):
 
     `gno lint` answers it directly, and both sides were checked before this was
     trusted: clean code exits 0 with no output; the goroutine mutant exits 1; and
-    the Bps mutation whose kourtv2 init invariant panics — a real catch — LINTS
+    the Bps mutation whose kourtv3 init invariant panics — a real catch — LINTS
     CLEAN and only fails under `gno test`. So lint means "it built", nothing more.
 
-    Costs about 3.3s on kourtv2 against 12.9s for its suite, and it is only asked
+    Costs about 3.3s on kourtv3 against 12.9s for its suite, and it is only asked
     when a catch is about to be scored, which is the one verdict that would be
     wrong if the mutant never built.
     """
@@ -301,7 +301,7 @@ def run_suite(root, pkg=None, mut=None):
     by its own tests, by a realm that imports it, or by neither — and only the last is
     a finding. Running one suite and calling it the answer would report the realm as
     covering the package it merely depends on, or the reverse. But not ALL suites
-    either: a kourtv2 mutation cannot be caught by twap's tests, and running them
+    either: a kourtv3 mutation cannot be caught by twap's tests, and running them
     anyway is what made a full batch time out.
     """
     names = OBSERVERS.get(pkg, list(PKGS)) if pkg else list(PKGS)

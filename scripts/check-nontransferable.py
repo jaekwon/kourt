@@ -56,7 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALMS = ["kourtv1", "kourtv2"]
+REALMS = ["kourtv1", "kourtv2", "kourtv3"]
 
 # An exported entrypoint whose name says it moves value between holders. Matched
 # on the exported surface only: unexported helpers are this realm's own business,
@@ -92,7 +92,11 @@ SUSPECT = re.compile(
 # else, is a redemption path and this refuses it.
 SENDCOINS = re.compile(r"\bSendCoins\s*\(")
 SENDCOINS_ALLOWED = {("kourtv1", "buy.gno"): 1, ("kourtv2", "buy.gno"): 2,
-                     ("kourtv2", "courtburn.gno"): 1}
+                     ("kourtv2", "courtburn.gno"): 1,
+                     # THE THIRD GENERATION, at the second's counts while it is still a
+                     # copy: the burn and the dust change in buy.gno, the creation burn
+                     # in courtburn.gno. The two-way change re-derives these rows.
+                     ("kourtv3", "buy.gno"): 2, ("kourtv3", "courtburn.gno"): 1}
 
 # courtburn.gno's ONE send is an OWNER DECISION, and a count alone would be a
 # blank cheque for it — so the entry comes with a rule that keeps the property
@@ -110,7 +114,7 @@ SENDCOINS_ALLOWED = {("kourtv1", "buy.gno"): 1, ("kourtv2", "buy.gno"): 2,
 # Registered when the owner reversed the v0.8.2 "no GNOT creation fee" decision
 # (MODERATION.md §13.5). The creation payment burns in full and nothing is paid
 # back out, which is what let the refund path be deleted rather than exempted.
-SINK_ONLY = {("kourtv2", "courtburn.gno")}
+SINK_ONLY = {("kourtv2", "courtburn.gno"), ("kourtv3", "courtburn.gno")}
 SINK_DEST = re.compile(r"burnSinkPath")
 
 # Exact names both patterns would otherwise trip on. WithdrawStake and

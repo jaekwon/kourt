@@ -8,7 +8,7 @@ loadpkg gno.land/p/kourt/grc20votes/v0
 loadpkg gno.land/p/kourt/governor/v0
 loadpkg gno.land/p/kourt/twap/v0
 loadpkg gno.land/p/kourt/curve/v0
-loadpkg gno.land/r/kourt/kourtv2
+loadpkg gno.land/r/kourt/kourtv3
 
 # Actors. adduser must precede `gnoland start`, so these hoist.
 adduser alice 900000000ugnot
@@ -21,105 +21,105 @@ gnoland start
 
 
 # --- arm the clock -----------------------------------------------------
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.TestClockActive()"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.TestClockActive()"'
 stdout 'false'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func EnableTestClockAt -args '1780000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func EnableTestClockAt -args '1780000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 
 # --- a court, and coin spread across three holders so a vote can reach quorum 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func StartCourt -args 'bedford' -args 'Bedford Truth Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args 'bedford' -args 'Bedford Truth Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
 stdout 'OK!'
 
 
 # --- a claim, staked by alice only — bob and carol keep coin free for bonds 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func OpenClaim -args 'bedford' -args 'The county certified 12,412 mail ballots on Nov 6, 2025.' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func OpenClaim -args 'bedford' -args 'The county certified 12,412 mail ballots on Nov 6, 2025.' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Stake -args 'bedford' -args '1' -args '0' -args '300000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Stake -args 'bedford' -args '1' -args '0' -args '300000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
 
 # --- ripen the answerability ring: 2,160 blocks, one transaction -------
 # answerWindow, without producing a block
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func AdvanceTestHeight -args '2200' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '2200' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Stake -args 'bedford' -args '1' -args '0' -args '1000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Stake -args 'bedford' -args '1' -args '0' -args '1000000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func PostAnswer -args 'bedford' -args '1' -args '0' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func PostAnswer -args 'bedford' -args '1' -args '0' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
 stdout 'OK!'
 
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.HasAnswer(\"bedford\",1)"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.HasAnswer(\"bedford\",1)"'
 stdout 'true'
 
 
 # --- carol disputes — she is not the answerer and her coin is unstaked -
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func OpenDispute -args 'bedford' -args '1' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func OpenDispute -args 'bedford' -args '1' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
 stdout 'OK!'
 
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.DisputeOpen(\"bedford\",1)"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.DisputeOpen(\"bedford\",1)"'
 stdout 'true'
 
 
 # --- votes cast while the round is open — by the two non-participants --
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func VoteDispute -args 'bedford' -args '1' -args 'no' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func VoteDispute -args 'bedford' -args '1' -args 'no' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func VoteDispute -args 'bedford' -args '1' -args 'no' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func VoteDispute -args 'bedford' -args '1' -args 'no' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
 stdout 'OK!'
 
 
 # --- THE POINT: close a week-long vote by telling the chain both its clocks 
 # votingBlocks + grace, in one transaction
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func AdvanceTestHeight -args '140000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '140000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 # the same 140,000 blocks on the wall clock, which is what a vote actually closes on
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func AdvanceTestClock -args '700000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestClock -args '700000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func ResolveDispute -args 'bedford' -args '1' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func ResolveDispute -args 'bedford' -args '1' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.DisputeOpen(\"bedford\",1)"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.DisputeOpen(\"bedford\",1)"'
 stdout 'false'
 
 
 # --- cross two emission periods — 241,920 blocks, for free -------------
 # one emission period
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func AdvanceTestHeight -args '120960' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '120960' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
 stdout 'OK!'
 
 # half a period for the budget to accrue against
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func AdvanceTestHeight -args '60000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '60000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv2 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
 stdout 'OK!'
 
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.TestHeightPeakSkew()"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.TestHeightPeakSkew()"'
 stdout '\(3[0-9]{5} int64\)'
 
-gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv2.TestClockFabricated()"'
+gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.TestClockFabricated()"'
 stdout 'true'

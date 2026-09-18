@@ -3,7 +3,7 @@
 
 THE BUG THAT PRODUCED THIS CHECK. TransferCC and TransferFromCC both open
 
-    if amount <= 0 { panic("kourtv2: transfer amount must be positive") }
+    if amount <= 0 { panic("kourtv3: transfer amount must be positive") }
 
 and both had a test passing 0 and asserting AbortsContains(..., "must be
 positive"). That reads like the guard is pinned. It was not: grc20votes carries
@@ -18,19 +18,19 @@ Two rows that looked unpinnable became caught the moment the assertions named
 the realm's own full message. Nothing about the realm changed.
 
 THE RULE. An assertion is ambiguous when its substring is contained in BOTH a
-kourtv2 panic message AND a panic message in a p/ package kourtv2 imports. Both
+kourtv3 panic message AND a panic message in a p/ package kourtv3 imports. Both
 halves are required, and the second one is what keeps this usable:
 
-  - "allowance exceeded" is produced ONLY by grc20votes. kourtv2 delegates
+  - "allowance exceeded" is produced ONLY by grc20votes. kourtv3 delegates
     allowance enforcement to the ledger, so asserting the ledger's message is
-    correct, not ambiguous. No kourtv2 competitor, no finding.
-  - kourtv1 and ccwrap also share messages with kourtv2 by the dozen — they are
-    its ancestor and its wrapper — but the kourtv2 suite never calls into them,
+    correct, not ambiguous. No kourtv3 competitor, no finding.
+  - kourtv1 and ccwrap also share messages with kourtv3 by the dozen — they are
+    its ancestor and its wrapper — but the kourtv3 suite never calls into them,
     so those pairs cannot fool any assertion here. Only IMPORTED packages count.
 
 WHAT THIS DELIBERATELY DOES NOT CHECK, because the check would be worse than the
-gap. A substring can also be loose WITHIN kourtv2: measured at the time of
-writing, 46 assertions match more than one kourtv2 panic message, "moderator"
+gap. A substring can also be loose WITHIN kourtv3: measured at the time of
+writing, 46 assertions match more than one kourtv3 panic message, "moderator"
 matching fifteen of them. Almost all are harmless — the other messages are not
 reachable from the call under assertion — and a check reporting 46 findings
 against a correct tree is the kind of nuisance that gets switched off, which
@@ -38,8 +38,8 @@ would cost more than it saves. The cross-layer rule is the one with a
 demonstrated failure behind it, and it sits at zero.
 
 If this fires: name the full message of the guard you are testing, including its
-"kourtv2:" prefix. If you genuinely mean to assert the inner layer's refusal,
-assert the inner layer's full message instead — and then no kourtv2 message
+"kourtv3:" prefix. If you genuinely mean to assert the inner layer's refusal,
+assert the inner layer's full message instead — and then no kourtv3 message
 matches it, so this check goes quiet on its own.
 """
 
@@ -52,7 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import repolock
 
 ROOT = Path(__file__).resolve().parent.parent
-REALM = ROOT / "r" / "kourtv2"
+REALM = ROOT / "r" / "kourtv3"
 PKGS = ROOT / "p"
 
 PANIC = re.compile(r'panic\("((?:[^"\\]|\\.)*)"')
@@ -77,7 +77,7 @@ def main():
     realm_files = sources(REALM)
     tests = sorted(REALM.glob("*_test.gno"))
     if not realm_files or not tests:
-        print("check-abort-assertions: no kourtv2 sources or tests found; the "
+        print("check-abort-assertions: no kourtv3 sources or tests found; the "
               "realm moved.", file=sys.stderr)
         return 1
 
@@ -135,7 +135,7 @@ def main():
               "layer it is not testing.\n", file=sys.stderr)
         for name, line, sub, pk, rl in bad:
             print(f"  {name}:{line}: asserts {sub!r}", file=sys.stderr)
-            print(f"      also matched by p/{', p/'.join(pk)} — and by kourtv2's "
+            print(f"      also matched by p/{', p/'.join(pk)} — and by kourtv3's "
                   f"own {', '.join(rl)}", file=sys.stderr)
         print("\nA guard whose refusal is indistinguishable from an inner layer's "
               "is not pinned: weakening it leaves the inner layer aborting and the "
@@ -154,7 +154,7 @@ def main():
               "ALWAYS holds and nothing else was considered.", file=sys.stderr)
         return 1
     print(f"check-abort-assertions: {seen} abort assertion(s), none satisfiable by "
-          f"a p/ layer that also has a kourtv2 counterpart "
+          f"a p/ layer that also has a kourtv3 counterpart "
           f"(reachable: {', '.join(sorted(reachable))}).")
     return 0
 

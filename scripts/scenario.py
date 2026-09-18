@@ -46,7 +46,7 @@ import shlex
 import pathlib
 import sys
 
-REALM = "gno.land/r/kourt/kourtv2"
+REALM = "gno.land/r/kourt/kourtv3"
 CHAINID = "tendermint_test"
 GAS = "-gas-fee 1000000ugnot -gas-wanted 200000000"
 # The same ceiling, as a number: the genesis txs-file writes JSON, not flags,
@@ -85,7 +85,7 @@ def _realm_reads():
     Derived rather than listed because the previous hand-kept denylist had
     already missed ClaimMetaFranchise(cur realm).
     """
-    d = pathlib.Path(__file__).resolve().parent.parent / "r" / "kourtv2"
+    d = pathlib.Path(__file__).resolve().parent.parent / "r" / "kourtv3"
     if not d.is_dir():
         raise SystemExit(f"scenario.py: no realm at {d} — has it been renamed again?")
     reads, writes = set(), set()
@@ -103,7 +103,7 @@ def _realm_reads():
     # scan is ambiguous, and ambiguity must not resolve to "safe to assert".
     reads -= writes
     if not reads:
-        raise SystemExit("scenario.py: found no realm reads — has r/kourtv2 moved?")
+        raise SystemExit("scenario.py: found no realm reads — has r/kourtv3 moved?")
     return reads
 
 
@@ -122,7 +122,7 @@ DEPS = [
 # The argument OpenClaimPM takes: one line per exhibit,
 # kind|sha256|mime|w|h|bytes|caption|mirror[,mirror...]
 #
-# THE SAME EIGHT FIELDS web/media.js builds and r/kourtv2 parses. A
+# THE SAME EIGHT FIELDS web/media.js builds and r/kourtv3 parses. A
 # scenario that wrote them differently would seed a demo the product could not
 # have produced, which is the one thing a demo must never do — the whole point
 # of seeding is to show what a person would actually get.
@@ -452,7 +452,7 @@ class Scenario:
                 f"{func} is not an exported READ of {REALM}. If it takes `cur realm` "
                 f"it is a transaction, and an expect on it would broadcast one while "
                 f"pretending to query — use a step. If it is new, it will be picked "
-                f"up automatically once it exists in r/kourtv2.")
+                f"up automatically once it exists in r/kourtv3.")
         self.steps.append({"kind": "expect", "func": func,
                            "args": [_lit(a) for a in args],
                            "re": _portable_pattern(matches, "expect"), "note": note,

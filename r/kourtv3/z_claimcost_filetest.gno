@@ -1,5 +1,5 @@
-// PKGPATH: gno.land/r/kourt/ccostkourt
-package ccostkourt
+// PKGPATH: gno.land/r/kourt/ccostkourt3
+package ccostkourt3
 
 // WHAT A CLAIM COSTS TO STORE — the object this suite wrote most and measured
 // never.
