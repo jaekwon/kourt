@@ -68,7 +68,15 @@ ALLOWED = {
 }
 
 # Below this, assume the patterns broke rather than that the repo shrank.
-CENSUS_FLOOR = 400
+#
+# RE-MEASURED WHEN kourtv3 WAS COPIED FROM kourtv2. Two realm generations double
+# the struct census: 504 fields before the copy, 848 after. The floor exists to
+# catch a blinded comment-stripper, and blinded the scan still finds 492 of the
+# 848 — above the old 400, so the doubled tree let a blind guard pass and
+# check-guards-blind said so. 700 sits between the blinded 492 and the honest
+# 848 with room either way; retire a generation and this number comes back down
+# with it, and the reason is written here so it is not mistaken for a target.
+CENSUS_FLOOR = 700
 
 
 def is_test(p):

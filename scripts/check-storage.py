@@ -161,6 +161,23 @@ TARGETS = [
         },
     },
     {
+        "src": os.path.join(REPO, "r/kourtv3"),
+        "dest": "examples/gno.land/r/kourt/kourtv3",
+        # THE THIRD GENERATION, budgeted from the day it was copied. kourtv3 began
+        # as a rename of kourtv2 (the two-way curve lands here, because the repo's
+        # kourtv2 mirrors what is live on gnoland-1 and a package deploys once), so
+        # its first figures are kourtv2's. Every line below gets re-measured the
+        # moment the reserve field and Redeem land, with a note of its own.
+        "deps": ["checkpoint", "grc20votes", "governor", "twap", "curve"],
+        "budgets": {
+            "z_read_filetest.gno": None,
+            "z_claimcost_filetest.gno": 97_000,
+            "z_testclock_filetest.gno": None,
+            "z_events_filetest.gno": 61_000,
+            "z_sitedomain_filetest.gno": 50_000,
+        },
+    },
+    {
         "src": os.path.join(REPO, "r/ccwrap"),
         "dest": "examples/gno.land/r/kourt/ccwrap",
         # ccwrap had NO filetest, and so no guard against a read that allocates —

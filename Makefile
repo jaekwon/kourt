@@ -94,7 +94,7 @@ realm-test: toolchain
 	for p in checkpoint grc20votes governor twap cshares tickbook curve; do \
 		( cd "$$pbase/$$p/v0" && "$(GNO)" test . ) || rc=1; \
 	done; \
-	for r in govern offerer kourtv1 kourtv2 ccwrap guilds; do \
+	for r in govern offerer kourtv1 kourtv2 kourtv3 ccwrap guilds; do \
 		mkdir -p "$$rbase/$$r" && \
 		cp r/$$r/*.gno r/$$r/gnomod.toml "$$rbase/$$r/" || exit 1; \
 		( cd "$$rbase/$$r" && "$(GNO)" test . ) || rc=1; \
