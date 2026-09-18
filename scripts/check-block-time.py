@@ -104,32 +104,41 @@ DECL = re.compile(
     r"^\s*(?:const\s+)?(\w+)\s*(?:int64\s*)?=\s*(?:int64\()?"
     r"([0-9_]+(?:\s*\*\s*[0-9_]+)*)\)?\s*(?://.*)?$", re.M)
 
+# KEYED BY (PACKAGE DIRECTORY, NAME), NOT BY NAME. This was keyed by name alone,
+# and it was correct for exactly as long as one realm generation existed. With
+# kourtv3 copied beside kourtv2 the glob visits both, sorted, and kourtv3's
+# `finalizeGraceSecs` silently REPLACED kourtv2's in the dict — so a plant that
+# moved kourtv2's seconds half was never seen, and the selftest arm that makes
+# that plant came back SILENT. A deadline's two halves live in one package;
+# pairing them per package is what the check meant all along.
 consts = {}
 for path in sorted(glob.glob(os.path.join(ROOT, "**", "*.gno"),
                              recursive=True)):
     if path.endswith("_test.gno"):
         continue
+    relpath = os.path.relpath(path, ROOT)
+    pkgdir = os.path.dirname(relpath)
     for m in DECL.finditer(io.open(path, encoding="utf-8").read()):
         name, expr = m.group(1), m.group(2).replace("_", "")
         if name in ("const", "var"):
             continue
         try:
             # Digits and `*` only, by construction of DECL.
-            consts[name] = (eval(expr), os.path.relpath(path, ROOT))
+            consts[(pkgdir, name)] = (eval(expr), relpath)
         except Exception:
             continue
 
 SUFFIX = {"Blocks": "blocks", "Secs": "secs", "Seconds": "secs"}
 stems = {}
-for name, (value, relpath) in consts.items():
+for (pkgdir, name), (value, relpath) in consts.items():
     for suffix, half in SUFFIX.items():
         if name.endswith(suffix) and len(name) > len(suffix):
-            stems.setdefault(name[:-len(suffix)], {})[half] = (value, name, relpath)
+            stems.setdefault((pkgdir, name[:-len(suffix)]), {})[half] = (value, name, relpath)
 
 pairs = {stem: halves for stem, halves in stems.items() if len(halves) == 2}
 
 wrong = []
-for stem, halves in sorted(pairs.items()):
+for (pkgdir, stem), halves in sorted(pairs.items()):
     blocks, bname, bfile = halves["blocks"]
     secs, sname, sfile = halves["secs"]
     if secs != blocks * BLOCK_SECS:
@@ -159,4 +168,4 @@ if len(pairs) < 2:
 print("check-block-time: a block is %d second(s) in all %d places that convert "
       "one into the other (%s), and %d deadline(s) written both ways agree (%s)."
       % (BLOCK_SECS, len(found), ", ".join(sorted(found)), len(pairs),
-         ", ".join(sorted(pairs))))
+         ", ".join(sorted(f"{stem} in {pkgdir}" for pkgdir, stem in pairs))))
