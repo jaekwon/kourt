@@ -159,12 +159,17 @@ uncollectable.
 still 0, winning leg **still paid**. So a lock keyed to the final verdict is void on any claim whose
 provisional flips once — the fix cannot re-key the release, it has to **delete** it.
 
-Routes checked and closed: no position transfer exists, CC has no user-facing transfer at all, the
-lock is per-court, purge touches no money. **But note the dependency that creates:** the lock is a
-bookkeeping row against a balance the realm does not hold, so it bites *only* because CC is
-soulbound — and `check-nontransferable.py`'s own docstring records that MODERATION.md wants meta-CC
-transferable, i.e. spec and code already disagree. **The day a transfer entrypoint lands, a delayed
-release evaporates silently.**
+Routes checked and closed: no position transfer exists (conviction stays on `stakePos`, keyed
+(address, side)), the lock is per-court, purge touches no money. CC itself does move now: in
+`r/kourtv3`, `TransferCC` (`lock.gno`) sends coin between holders and `Redeem` (`redeem.gno`) returns
+it for the court's pro-rata GNOT. **But note the dependency that creates:** the lock is a bookkeeping
+row against a balance the realm does not hold, so it bites *only* because every user-sourced outflow
+refuses committed coin — `TransferCC` against `DisposableOf`, `Redeem` through `mustSpendable`, the
+gate on the line above every burn, counted by `check-epoch-coherence`. `check-nontransferable.py` no
+longer asserts that coin is soulbound; it pins GNOT's two exits from the realm (Buy's dust change and
+Redeem's pro-rata payout) and that standing cannot be assigned. **The day an outflow lands without
+that gate, a delayed release evaporates silently** — the transfer and the redemption entrypoints
+both landed with it.
 
 ### 6.2 It reverses a REGISTERED MITIGATION, not merely a behaviour
 
@@ -354,12 +359,13 @@ winning side at MID/cold (unreachable — and straddling actually *relieves* the
 supply cold, ~1.5% hot.**
 
 **And the two regimes coincide.** `d_eff = min(budget, EMA(minted)/supply)`, so **a hot court is by
-definition a clamped court.** Cold: +5.6%, the harm falls on emission and nobody is robbed. Hot: up
-to +176%, the clamp binds, and the harm falls on honest stakers **1:1**. Compounding it, the reward
-scales with `r + d` while the *differential* carry of staking-versus-holding is only `r` — dilution
-hits staked and unstaked CC alike — so `ECONOMICS.md`'s `ρ = r + d` is right for the *buy* decision
-and wrong for the *stake* decision, and **the anti-farm margin degrades linearly in `d_eff`. The
-hazard grows with the court's success.**
+definition a clamped court.** Cold: +5.6%, the harm falls on emission — which on the two-way coin is
+every holder's pro-rata GNOT return moving by N/(N+m), staked or not — and no staker's principal is
+touched. Hot: up to +176%, the clamp binds, and the harm falls on honest stakers **1:1**.
+Compounding it, the reward scales with `r + d` while the *differential* carry of staking-versus-
+holding is only `r` — dilution hits staked and unstaked CC alike — so `ECONOMICS.md`'s `ρ = r + d`
+is right for the *buy* decision and wrong for the *stake* decision, and **the anti-farm margin
+degrades linearly in `d_eff`. The hazard grows with the court's success.**
 
 ### 8.7 Self-minting is the DESIGN, and load-bearing
 
@@ -367,8 +373,12 @@ hazard grows with the court's success.**
 contested pool" property — the single strongest de-gambling fact in `REGULATIONS.md` (Humphrey
 factor 2; *White v. Cuomo*, prizes unchanged by entrant numbers). `court.gno`'s `slashDrawBps >=
 10700` check exists to certify exactly that. **Every dilution-based fix converts it back into a
-contested pool.** It is also why the straddle harms no honest staker off the clamp — the leak is
-dilution of CC holders, not theft.
+contested pool.** It is also why the straddle harms no honest staker's *stake* off the clamp — the
+leak is dilution of CC holders, not theft. But under the two-way coin (TWOWAY.md §4) dilution is no
+longer a number without an owner: every emitted coin is redeemable at the pro-rata return, so
+emission to a straddler moves GNOT claims from every holder — the buyers whose held share sits in
+the reserve — to the party paid, by exactly N/(N+m) per coin. Not theft, not outcome-contingent,
+and not free.
 
 ### 8.8 The bonus tier cannot be targeted, and that is provable
 
@@ -413,4 +423,9 @@ What to do instead:
 5. **If a fix is ever wanted:** the only survivor is a **time-proportional charge on `∫stake·dt` at
    ψ = 2.42 bps/wk, burned** — `stakePos.rawHi/rawLo` already holds the integral, so it is nearly
    free to build, and it is the one lever F9 cannot escape. It still moves the honest break-even to
-   0.500. **Price that band before building it.**
+   0.500. And on the two-way coin a burned fee is not a cost that lands nowhere: `Redeem` pays
+   floor(reserve × amount / TotalSupply) and the reserve is untouched by a coin burn, so a burned
+   ψ-fee raises every remaining holder's pro-rata return, the payer's own remaining coin included.
+   The payer bears the fee less their share of supply; the rest arrives at every other holder as a
+   higher return — a transfer between holders keyed to time staked, not to the verdict. **Price
+   that band before building it, and price where the fee lands.**

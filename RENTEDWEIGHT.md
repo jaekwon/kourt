@@ -21,7 +21,9 @@ price.
 What prices it is the second half: **coin you voted with cannot leave your balance
 until the question resolves** (`votelock.gno`). A renter must carry the position
 across the whole voting-and-resolution window — about a week instead of an hour —
-so the attack costs the risk of holding that long. Until resolution and not the
+so the attack costs the carry of holding that long. Under kourtv3 that carry is
+*time* rather than price risk, because a protocol bid now stands under the
+position (the V3 row, below). Until resolution and not the
 ballot close; the amount voted and not the address; blocking disposal but not
 staking, since staking leaves the coin in the balance and voting.
 
@@ -138,6 +140,39 @@ is no longer an **irreversible curve purchase burning GNOT at a rising price** �
 which is precisely the premise the v0.31 `electionFloor` keep-netting ruling and
 `MODERATION.md`'s capital-keyed sybil doctrine rested on. Those two rulings are
 what need re-arguing, and this is why.
+
+### The V3 row — the exit is now a protocol bid
+
+Under V2 the whole payment burned and the only way out was the market. Under
+kourtv3 the payment splits (`splitPayment` in `redeem.gno`, called from `buy.gno`): a tenth burns to the
+keyless sink (`BurnBps`, DAO-admin-set within `[500, 5000]` bps, realm-wide) and
+the rest is held per court as `reserve`. `Redeem` (`redeem.gno`) pays a holder
+`floor(reserve × amount / TotalSupply)` for uncommitted coin, and it goes
+through `mustSpendable` like every other outflow, so vote-locked coin cannot be
+redeemed any more than it can be transferred
+(`TestVotedCoinCannotBeRedeemedUntilTheRoundResolves`). That return is never
+above the curve's price for the next coin, is at most about half of it right
+after an offering, and falls as emission mints. So the exit is a **protocol bid
+at the pro-rata return**, and the rental is priced two ways:
+
+- **Curve route** — buy on the curve, vote, `Redeem`. A round trip costs the
+  curve/return spread: 54–75% of outlay (TWOWAY.md §6 A1, from the §4 grid).
+  Still the expensive door, and the one every %-of-supply bar was calibrated
+  against.
+- **OTC route** — buy near the return value on gnoswap, unwrap, wait an epoch,
+  vote, hold through resolution, `Redeem`. Costs the premium over the floor plus
+  `(25 + ≤38 bps)·T` of carry — `r0WeeklyBps` plus the `d_eff` cap, per week
+  held — with the downside **bounded at the return value**, because the bid
+  stands under the market floor. This is what the vote lock now prices: time,
+  not price risk.
+
+Two closures that look as if they would price it do not. An exit fee is
+capitalised into the market floor and paid by every seller, so the renter pays
+it only above the floor (TWOWAY.md §9 rejected it on that ground). A redemption
+delay is worth 25 bps a week, which TRADEANDLOCK.md measured as three orders of
+magnitude short of the edge a wait was built to deter. **Accepted residual**,
+TWOWAY.md §6 A1, disclosed here. None of this is a statement of what the held
+share is worth; the return is the arithmetic above and nothing else.
 
 ---
 

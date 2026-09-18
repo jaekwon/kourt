@@ -13,7 +13,11 @@ court's coin stake on it, an answerer bonds a resolution, and anyone who
 disagrees can force a vote. Voting weight is read from an hourly snapshot
 sealed before the vote opened, so weight cannot be bought for a vote already
 underway. Verdicts, stakes, and dissents are recorded permanently. The coin is
-minted on a one-way curve and the payment is burned; no treasury exists, and
+minted on a bonding curve whose position never walks back; a share of each
+payment (a tenth at launch) is destroyed and the rest is held by the code,
+where the only instruction that can move it pays any holder who returns coin a
+pro-rata share of it — less than half the coin's price right after an
+offering, and less as emission mints. No one administers that share, and
 rewards are minted by a bounded, decaying emission that pays the people who do
 the judging. Moderation, including the appeals court that oversees it, can
 control what is listed but cannot touch a stake, a bond, a verdict, or a
@@ -22,7 +26,9 @@ What accumulates is a public record of each dispute: what was claimed, what it
 cost to claim it, and how each part fared. This record is the purpose of the
 system.
 
-*Draft. Kourt is not yet deployed to a public network. Nothing in this
+*Draft. A first generation of Kourt has run on gnoland-1 since height 9676;
+the three courts founded under it stay one-way at their path forever, and the
+generation this paper describes is a fresh realm. Nothing in this
 document is an offer to sell anything or a promise that anything will be worth
 anything. Section 7 states what the coins are and are not; read it before
 acquiring any.*
@@ -135,7 +141,9 @@ A claim not yet carried to verdict stays OPEN, its live stakes visible. Accuracy
 minted from the court's emission and paid to the prevailing bonder (answerer
 or disputer), the stakers on the verdict's side, and the voters of the
 deciding round. Forfeited bonds are
-burned. No one in Kourt is paid from anyone else's loss.
+burned. No one in Kourt is paid from anyone else's loss, though a burned bond
+leaves every remaining coin, the prevailing party's included, a slightly larger
+pro-rata share of what the court holds (section 4).
 
 Two things about that reward are worth being exact about, because a staker
 commits before either is knowable. The **published rate is never reduced** — a
@@ -272,7 +280,7 @@ argument, a product's safety record. What accumulates in each court has not
 existed before: a map of the argument. What is claimed, what each claim rests
 on, what died and what killed it, what is still live. The weight on each side
 is denominated in money someone
-chose to burn for a voice.
+chose to spend for a voice, a share of it destroyed outright.
 
 Wikipedia records the winner's summary. Threads record the fight, without
 memory. Fact-checks record one editor's verdict on one atom, without
@@ -285,10 +293,10 @@ system exists. The coins are how it gets built.
 ## 4. Courts and coins
 
 Every court has its own coin. This is deliberate fragmentation. One topic's
-fate must not couple to another's, so courts share no coin, no treasury, and
-no failure mode. Capture of one court captures one court.
+fate must not couple to another's, so courts share no coin, no held reserve,
+and no failure mode. Capture of one court captures one court.
 
-A court's coin is minted one way: on its bonding curve, paid in GNOT, the
+A court's coin is minted in one place: on its bonding curve, paid in GNOT, the
 native token of the gno.land chain. The price starts near zero and rises
 linearly with each coin minted, so the cost of the n-th coin is proportional
 to n. Voice in a small court is cheap because almost no one has claimed one.
@@ -297,16 +305,36 @@ and no allocation. What a founder gets is the chance to mint first, on the
 same curve, at its lowest positions; section 7 discloses that the designers
 may hold such positions.
 
-The GNOT paid is burned: sent to a designated burn address, auditable by
-anyone on-chain. It is not held, pooled, or managed. This one fact clarifies
-the design:
+The GNOT paid splits, in code, at the moment of payment. A share of it — a
+tenth at launch, set realm-wide by the DAO admin within fixed bounds
+(`SetBurnBps` in `redeem.gno`) — is destroyed: sent to a designated burn
+address with no key, auditable by anyone on-chain. The rest is held on that
+court's own ledger at the realm's address, not pooled across courts and not
+managed by anyone. Two facts clarify the design:
 
-- **No treasury.** No one holds a pool of contributed funds, because no such
-  pool exists. There is no fund to steal, freeze, or embezzle, and no
-  custodian to trust.
-- **No redemption.** The curve only mints; nothing buys back. GNOT spent is
-  spent. What it bought is a durable voice in one court's decisions, and
-  eligibility to earn that court's emission by working.
+- **No discretionary treasury.** No one holds a pool of contributed funds. The
+  held share sits in immutable code with one exit — a holder returning coin —
+  and no admin, no vote, and no moderation power can move it anywhere else.
+  There is no fund to steal, freeze, or embezzle, and no custodian to trust,
+  because there is no custodian.
+- **Returning coin pays a share, not a price.** `Redeem` (`redeem.gno`) burns
+  the coin returned and pays the court's pro-rata share of what it holds: the
+  held GNOT times the coin returned over the coin's total supply, rounded
+  down. That figure is never above the curve's price for the next coin: less
+  than half its price right after an offering, and less as emission mints coin
+  against nothing. The curve's position never walks back, so no stretch of it
+  is sold twice. Coin committed to a stake or an open vote cannot be returned
+  any more than it can be transferred (`mustSpendable`), and nothing is charged
+  on the way out. What a purchase buys is a durable voice in one court's
+  decisions, eligibility to earn that court's emission by working, and that
+  share of what the court holds.
+
+A court may instead be founded one-way (`StartOneWayCourt` in `court.gno`):
+the whole of every payment is destroyed and nothing returns, which is how the
+first generation's courts work and how they will always work. The choice is
+fixed at creation, because a court that could flip later would turn every
+holder's returnable share into a burn under them. The Review Court is founded
+one-way, for the reason section 5 gives.
 
 Coins are voice: staking weight, voting weight at sealed epochs, the right to
 answer and dispute.
@@ -339,12 +367,16 @@ that touch moderator sets further require that real opposing weight voted.
 Silence can never seize a court.
 
 The Review Court's electorate is the people who built the platform under it.
-Burning GNOT in any court, other than the Review Court itself, earns
-franchise: a claimable right to mint KOURT:META later. The franchise is not a
-discount; the price is the same for everyone. What differs is which burn pays
-it: GNOT already burned for a court's coin stands on record, and the Review
-Court's curve accepts that record as payment, while a direct buyer burns new
-GNOT. Claiming mints through
+The burned share of every offering in any court, other than the Review Court
+itself, earns franchise: a claimable right to mint KOURT:META later,
+denominated in GNOT actually destroyed (`accrueFranchise` in `meta.gno`). The
+held share earns none, because it is exactly what a holder can take back, and
+a franchise credited on it could be minted for nothing, court after court. The
+franchise is not a discount; the price is the same for everyone. What differs
+is which burn pays it: GNOT already destroyed for a court's coin stands on
+record, and the Review Court's curve accepts that record as payment, while a
+direct buyer burns new GNOT — the Review Court is one-way, so a payment for
+its coin is destroyed in full. Claiming mints through
 the Review Court's own curve at the price a direct buyer would pay at that
 moment, and every court's claimed burn feeds that one curve, so the cost of
 appellate voice reflects the platform's whole history rather than any one
@@ -362,8 +394,14 @@ everything ever claimed into its curve:
 | 50% | 3× |
 | 90% | 99× |
 
+Routing the burn through other courts instead of buying META directly does not
+cheapen it: only the destroyed share of an offering earns franchise, so an
+attacker must put up 1/φ of the table's figure, where φ is the burn share, and
+can take at most (1−φ)/φ of it back, and only by returning that coin; the multiple of GNOT
+destroyed is the same.
+
 Weight counts only if it was in place before the appeal's vote opened.
-Franchise not yet claimed is a standing reserve: every unclaimed unit, once
+Franchise not yet claimed is a standing overhang: every unclaimed unit, once
 claimed, dilutes a captor.
 
 ## 6. Moderation
@@ -409,9 +447,14 @@ that defeats a legal purge.
 The limits below are design constraints, not disclaimers.
 
 **The coins are not investments, and this document is not an offer of one.**
-There is no treasury, no dividend, no buyback, no redemption, and no pool of
-anyone's money anywhere in the system. GNOT spent on a curve is burned and
-should be treated as spent. The coin is a participation instrument: voice in
+[counsel: re-opine — see TWOWAY.md §8] There is no discretionary treasury, no
+dividend, and no buyback: returning coin is paid a pro-rata share of what the
+court holds, never a price, and never more than the curve charges for the next
+coin. No person administers that share; the code pays it and nothing else can
+move it. GNOT spent on a curve should be treated as spent: the destroyed share
+is gone, and the held share comes back at less than half its price right after
+an offering, and less as emission mints. The coin is a participation
+instrument: voice in
 one court's decisions, and eligibility to earn its emission by doing its
 work. A coin in a court whose question holds no interest is a coin with no
 use.
@@ -434,15 +477,21 @@ lifetime ceiling adds less than 80% on top of curve-minted supply, and half of a
 emission lands in roughly a court's first two years.
 
 **This is early software on a young chain.** It has had internal audit rounds
-only; there has been no external audit. Nothing is deployed to a public
-network as of this draft, and test deployments reset. Assume bugs exist.
-Assume a coin can end up worthless, and size participation like the burn it
-is.
+only; there has been no external audit. A first generation runs on gnoland-1
+and cannot be patched; the generation described here is a fresh realm, and
+test deployments reset. Assume bugs exist.
+Assume a coin can end up worthless, and size participation like the spend it
+is: the destroyed share is gone, and the held share returns a share, not a
+price.
 
-**Disclosure.** Kourt's designers hold GNOT, the token every curve burns,
-and may hold positions in courts they have founded, minted on the same public
-curve as anyone else's and visible on-chain like any others. Readers should weigh
-this document accordingly.
+**Disclosure.** Kourt's designers hold GNOT, the token every curve is paid
+in, and may hold positions in courts they have founded, minted on the same
+public curve as anyone else's and visible on-chain like any others. A position
+low on a curve is also a pro-rata claim on the court's held reserve, and that
+claim is funded by every later buyer: when later buyers arrive it can return a
+multiple of what the position cost, while still returning less per coin than
+those later buyers paid. The designers may hold such positions. Readers should
+weigh this document accordingly.
 
 **Nothing here is legal, financial, or medical advice.** That includes the
 contents of every court's record, which are the staked opinions of the people
@@ -450,10 +499,11 @@ who put money on them.
 
 ## 8. Participation
 
-Kourt is built for gno.land. At launch it will run on a public testnet, where
-GNOT is free from a faucet, so trying the system will cost nothing. A burn of
-faucet tokens is rehearsal; the record that matters starts where the money is
-real.
+Kourt is built for gno.land. A first generation runs on gnoland-1, its three
+courts one-way at their path for good; the generation described here starts
+empty, as a fresh realm. On a test network GNOT is free from a faucet, so
+trying the system there costs nothing. An offering of faucet tokens is
+rehearsal; the record that matters starts where the money is real.
 
 Participation is three acts: founding or joining a court, filing the claims
 its record lacks, and staking, answering, disputing, and voting as
@@ -465,6 +515,6 @@ who stood where, and what it cost, will not.
 ---
 
 *Kourt · kourt.xyz · target platform gno.land · coins denominated KOURT:SLUG;
-the Review Court's coin is KOURT:META. Design sources: PLAN.md, MODERATION.md,
+the Review Court's coin is KOURT:META. Design sources: PLAN.md, MODERATION.md, TWOWAY.md,
 and the realm source. Where this document and the code disagree, the code
 governs.*

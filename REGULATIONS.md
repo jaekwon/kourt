@@ -130,7 +130,7 @@ takes (b). [SETTLED as to history]
 | Lever | Effect |
 |---|---|
 | Loser-funded payouts (zero-sum) vs issuance-funded | **Material** — the single cleanest de-gambling change |
-| Real money exits contingent on outcomes | **Material** — avoid entirely (V2: GNOT burned, rewards in CC) |
+| Real money exits contingent on outcomes | **Material** — avoid entirely (V2: GNOT burned, rewards in CC). V3 (`r/kourtv3`, TWOWAY.md): a holder of a two-way court's coin may return it for GNOT through `Redeem` (redeem.gno), but the pro-rata payout reads the court's `reserve` and `TotalSupply` only — never a verdict, a vote or a claim — so the exit is outcome-INDEPENDENT, and rewards stay in CC. Residual: every bond forfeiture burns coin, and a smaller supply raises every remaining holder's pro-rata share, the prevailing party's included. Whether an outcome-independent exit whose value moves with forfeitures still counts as "avoided" here is [counsel: re-opine — see TWOWAY.md §8]. |
 | Subject: verifiable fact vs election/sports/awards "contest" | **Material** — contests trip CEA "gaming" + state law |
 | CFTC DCM registration | **Material** — the only state-law preemption |
 | Payout = predetermined/formulaic, operator not a stakeholder | **Material** (Humphrey factors) |
@@ -139,14 +139,34 @@ takes (b). [SETTLED as to history]
 | Decentralization / non-custody | Helps securities (efforts-of-others), **does not help** CFTC/gambling (Ooki, Polymarket) |
 | Non-profit / "verdict-as-product" framing | Rhetoric, not doctrine |
 
-## 7. Kourt-specific exposure map (V2)
+## 7. Kourt-specific exposure map (V2, with the V3 two-way deltas inline)
 
 1. **Emission-funded winner rewards** — recharacterization risk as a common-pool
    prize via dilution (accepted gray, owner sign-off; see PLAN.md §7.2).
 2. **CC coin under Howey** — yield-ish emission + paid contributors strengthen
-   prongs 3/4; mitigants: non-redeemable in-protocol (transferable), work/correctness-gated
-   rewards, comms hygiene, no treasury expectations (GNOT burned). Main
-   accepted risk.
+   prongs 3/4. Two of the four mitigants this item listed are **withdrawn** by
+   the two-way curve (`r/kourtv3`, TWOWAY.md §8), not argued around:
+   "non-redeemable in-protocol (transferable)" is withdrawn — a two-way court's
+   coin is redeemable in-protocol through `Redeem` (redeem.gno); and "no
+   treasury expectations (GNOT burned)" is withdrawn — only the burn share
+   (`BurnBps`, a tenth at launch, DAO-admin-set within [500, 5000] bps,
+   realm-wide) burns, and the held share sits in the realm's own account,
+   ledgered per court as `reserve`. The three mainnet courts on the V2 path
+   stay one-way forever, and a V3 court may be founded one-way
+   (`StartOneWayCourt`, court.gno), so both mitigants still hold for those
+   coins. What stands in their place, for counsel to weigh rather than for this
+   memo to conclude: (i) the held share is in immutable code with one exit —
+   the pro-rata `Redeem`, paying floor(reserve × amount / TotalSupply) through
+   the same `mustSpendable` (lock.gno) gate as every other outflow — and no
+   other instruction, admin or vote can move it; (ii) the payout is capped
+   below the curve's price, so an immediate round trip always loses (TWOWAY.md
+   §4, proof (c)); (iii) the meta court is one-way at init; (iv)
+   work/correctness-gated rewards and comms hygiene are unchanged. Against
+   that, under the profit-expectation prong: an early position recovers above
+   its cost when later buyers arrive — the shape of a bonding curve with a
+   pro-rata exit, accepted and disclosed, not closed by mechanism (TWOWAY.md
+   §4 and A2). Main accepted risk. [counsel: re-opine — see TWOWAY.md §8; main
+   accepted risk]
 3. **Voter liability (Ooki theory)** — mitigate with a Wyoming DUNA wrapper
    (2024 act: member-liability shield for DAO-like associations [verify with
    counsel]), rules-based payouts only, no real-money flows directed by votes.
@@ -157,7 +177,17 @@ takes (b). [SETTLED as to history]
    #1 residual on both the gambling and CFTC axes (V1's own doc had described
    bonds as "a bet between two people"). Remaining theory: conduct-priced loss
    on a vote outcome, defended on the appeal-bond/sanction analogy —
-   materially stronger post-burn, still [UNTESTED].
+   materially stronger post-burn, still [UNTESTED]. Under the two-way curve
+   (`r/kourtv3`, TWOWAY.md) "forfeitures burn; compensation mints" stays true
+   in GNOT as well as in CC: the forfeiture is `c.coin.Burn(c.escrow, …)`
+   (dispute.gno) — it destroys coin, not GNOT — the court's `reserve` is
+   untouched, and no forfeited GNOT is ever paid to a counterparty. But a CC
+   burn shrinks `TotalSupply`, so it raises every remaining holder's pro-rata
+   `Redeem` share by N/(N−X) for a burn of X out of N — including the prevailing party's
+   (TWOWAY.md §6 A7: engineering one pays only if the burned share of supply
+   exceeds ~0.55, and bonds are capped far below). Whether that indirect,
+   supply-wide uplift revives a loser-pays theory is [counsel: re-opine — see
+   TWOWAY.md §8].
 5. **Claims subject matter** — avoid elections/sports/awards categories; prefer
    verifiable factual/economic claims. Editorial policy, cheap to keep.
 
@@ -166,6 +196,9 @@ takes (b). [SETTLED as to history]
 - Opinion: no-loss + bounded-emission + burn structure vs state gambling (esp.
   material-element and any-chance states) and CEA §1a(47)(A)(ii).
 - Opinion: CC under Howey with emission; transferability on/off.
+- Opinion: CC under Howey with a per-court held pool and pro-rata exit (V3,
+  TWOWAY.md) — the two withdrawn mitigants in §7 item 2, the forfeiture uplift
+  in §7 item 4, and the early-buyer recovery under the profit-expectation prong.
 - DUNA formation + fit for the governor/`grc20votes` cohort.
 - Re-pull when final: CFTC "Prediction Markets" rule (91 FR 35806); CLARITY Act;
   pump.fun/Baton docket status.
@@ -291,3 +324,43 @@ does **nothing** for the gambling axis, and the surrounding fight is making that
 **Re-pull triggers:** the 2026-09-15 cloture vote; whether a prediction-markets carve-out lands in
 any of the three texts; whether "network token" survives reconciliation with Senate Ag; the split
 on CEA preemption reaching the Supreme Court.
+
+### 2026-09-17 — The two-way court coin (`r/kourtv3`, TWOWAY.md). What this file said that stopped being true, and what replaced it.
+
+**The decision [owner, 2026-09-17]:** the bonding curve is two-way. Each payment for a
+court's coin splits: the burn share (`BurnBps`, redeem.gno — a tenth at launch, DAO-admin-set
+within [500, 5000] bps, realm-wide) goes to the keyless sink exactly as V2 burned the whole
+payment; the held share stays in the realm's own account, ledgered per court as `reserve`. A
+holder may return coin through `Redeem` (redeem.gno) for floor(reserve × amount /
+TotalSupply) µGNOT, gated by `mustSpendable` (lock.gno) like every other outflow — committed
+coin cannot be cashed out. There is no exit fee. A court may instead be founded one-way
+(`StartOneWayCourt`, court.gno), fixed at creation; the meta court is one-way at init.
+Franchise (`accrueFranchise`, meta.gno) and directory rank (`reindexBurn`, modrender.gno)
+key on the burned share only. `r/kourtv3` is a fresh realm; the three mainnet courts on the
+V2 path stay one-way there forever, and their 481.13 GNOT sits at a keyless address,
+recoverable by nobody.
+
+**[counsel] FinCEN, re-opened:** the 2026-08-15 MSB/CVC note analysed a one-way burn. A realm that pays GNOT out to a holder on redemption is a different fact pattern; the checkbox above is open again for V3.
+
+**What changed in this file:** §6's lever row "Real money exits contingent on outcomes" gains
+the V3 clause (the exit is outcome-independent; forfeitures raise every holder's share). §7
+item 2 **withdraws** "non-redeemable in-protocol" and "no treasury expectations (GNOT burned)"
+as Howey mitigants — explicitly, not silently — and states what stands in their place plus
+the early-buyer windfall under the profit-expectation prong. §7 item 4 gains the
+forfeiture-uplift sentence. §8 gains the re-opinion to-do. Every new conclusion is tagged
+[counsel: re-opine] rather than asserted; the prior conclusions ("Main accepted risk",
+"materially stronger post-burn, still [UNTESTED]") are kept and flagged, not replaced.
+
+**What did NOT change, and why it matters here:** the gambling and CFTC axes are untouched by
+the exit's existence as such — the payout reads reserve and supply, never a verdict, so
+nothing is staked or risked UPON THE OUTCOME (the §225.00(2) framing above); rewards are still
+minted, forfeitures still burn, no loser pays a winner in CC or in GNOT. The 2026-08-20
+consequence — "principal returns 1×, the prize is minted, no loser-pays anywhere" — needs
+one correction: on a two-way court the coin's *GNOT* return is not 1× of principal but a
+pro-rata share that is below the curve's price by construction (TWOWAY.md §4); the *CC*
+principal on a stake still returns 1×. Public copy states the return qualitatively only
+("less than half its price right after an offering, and less as emission mints"); the
+recovery grids are internal to TWOWAY.md §4. The Munchee note (2026-08-15) stands unchanged:
+neither the burn share nor the held share is marketed as scarcity or value, and the held
+share is never described as backing or worth. [SETTLED as to what the code does; every legal
+characterisation of it is for counsel — see TWOWAY.md §8]

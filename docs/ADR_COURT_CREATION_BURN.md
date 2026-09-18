@@ -25,7 +25,8 @@ an administrator.
 
 ## Decision
 
-Add `courtCreationBurn`, µGNOT, in `r/kourtv2/courtburn.gno`:
+Add `courtCreationBurn`, µGNOT, in `r/kourtv2/courtburn.gno` (carried unchanged
+into `r/kourtv3/courtburn.gno` — see *Under V3, kept as it was* below):
 
 * `SetCourtCreationBurn(cur realm, amount int64)` — gated on
   `ensureGlobalDAO().admin`, matching `SetAssociationBondDefault`. The two are
@@ -52,11 +53,20 @@ assumed, in `TestCourtCreationBurnShipsOff`.
 
 The first implementation copied `Buy`: burn the price, refund the excess.
 `check-nontransferable` refused it, and it was right to. A refund is **GNOT
-leaving the realm to a user**, which is precisely the property REGULATIONS.md's
-position rests on never happening — "the payment is burned, nothing ever
-redeems". `Buy`'s remainder send is the single sanctioned exception, and it
-exists because a bonding curve genuinely cannot spend the last ugnot past the
-curve's `d`; there is no such arithmetic in a flat fee.
+leaving the realm to a user**. An earlier draft of this paragraph attributed the
+sentence "the payment is burned, nothing ever redeems" to REGULATIONS.md; it is
+not there. The sentence is `r/kourtv2/buy.gno`'s header ("No treasury exists,
+nothing ever redeems"), quoted by `check-nontransferable`'s own docstring. What
+REGULATIONS.md itself listed (§7.2 item 2) were the Howey mitigants
+"non-redeemable in-protocol" and "no treasury expectations (GNOT burned)", and
+that is the position the guard was said to protect [counsel: re-opine — see
+TWOWAY.md §8, which withdraws both mitigants]. Under V2 `Buy`'s remainder send
+was the single sanctioned exception, and it exists because a bonding curve
+genuinely cannot spend the last ugnot past the curve's `d`; there is no such
+arithmetic in a flat fee. Under V3 (`r/kourtv3`) the guard pins a second door,
+`Redeem`'s pro-rata payout from what a court holds (`PRO_RATA_ONLY`), and a
+creation-fee refund is neither of the two: it prices entry and is credited to no
+court's `reserve`.
 
 So the refund was deleted rather than argued for, and the semantics improved as a
 result: **send at least the minimum, and all of it burns**. That is a true
@@ -66,20 +76,36 @@ and the page attaches exactly it; a caller who deliberately sends more has
 deliberately burned more.
 
 The single remaining `SendCoins` is registered in `check-nontransferable`
-alongside a **new rule**: every send in a sink-only file must name
-`burnSinkPath`. Without it the registration would be a blank cheque — a later
-edit could point that one send at a user address and the count would still read
-1. Ablated both ways (swap the destination; add a second send); each fires a
-different arm against a control that fires nothing.
+alongside a **new rule** (`SINK_ONLY`, carrying both `r/kourtv2/courtburn.gno`
+and `r/kourtv3/courtburn.gno`): every send in a sink-only file must name
+`burnSinkPath`. Each realm's `burnSinkPath` is its own never-instantiated sub-
+realm identity, so V3's sink is not V2's, and `BurnSink()` says which. Without
+it the registration would be a blank cheque — a later edit could point that one
+send at a user address and the count would still read 1. Ablated both ways (swap
+the destination; add a second send); each fires a different arm against a
+control that fires nothing.
 
 ## Not the court's own burn
 
 `reindexBurn`/`accrueFranchise` are deliberately not called. The directory ranks
 its listed tier on `burnedGNOT` because that figure is *voluntary* and cannot be
-faked (§3.2). A mandatory toll every court pays identically adds a constant to
-every row: it moves no ranking, says nothing about a court, and would make the
-one un-sybil-able signal in the directory slightly less honest. Asserted in
+faked (§3.2) — under V3, the burned share of every curve payment; the held share
+is what `Redeem` can return and counts toward neither rank nor franchise. A
+mandatory toll every court pays identically adds a constant to every row: it
+moves no ranking, says nothing about a court, and would make the one un-sybil-
+able signal in the directory slightly less honest. Asserted in
 `TestCourtCreationBurnBurnsTheWholePayment`, not left to a comment.
+
+## Under V3, kept as it was
+
+The two-way coin (`r/kourtv3`, TWOWAY.md) splits a *curve* payment into a burned
+share and a held share that `Redeem` pays back pro-rata. The creation burn did
+not split. `takeCourtCreationBurn` in `r/kourtv3/courtburn.gno` still sends the
+whole payment to `burnSinkPath` and credits no court's `reserve`: a creation fee
+prices entry, belongs to no coin, and there is no holder to pay it back to. It is
+still counted only in the realm-wide `BurnedGNOT`, still absent from
+`CourtBurnedGNOT` and the franchise, and `SINK_ONLY` still holds its one send to
+the sink.
 
 ## Alternatives considered
 
@@ -101,7 +127,9 @@ one un-sybil-able signal in the directory slightly less honest. Asserted in
   courts programmatically will break the moment the burn is set — this is
   inherent to taking payment, not incidental, and it is why the default is off.
 * `BurnedGNOT()` now includes creation burns as well as curve burns. Per-court
-  `CourtBurnedGNOT` does not.
+  `CourtBurnedGNOT` does not. Under V3 `BurnedGNOT()` is the sink's balance —
+  creation burns plus the burned share of every curve payment; the held share is
+  reported by `TotalReserveGNOT()` and never appears here.
 * The figure is visible with every other realm-wide setting at `/admin-params`
   and in `AdminParams()`.
 

@@ -1,4 +1,4 @@
-# ECONOMICS.md — private emission-calibration memo (V2)
+# ECONOMICS.md — private emission-calibration memo (V2, with the V3 two-way addendum)
 
 > Referenced by PLAN.md §3.3. INTERNAL: per §7.4 comms hygiene, nothing in this
 > file — rates, APR-equivalents, margins — may appear in public docs, render,
@@ -11,7 +11,7 @@
 |---|---|
 | `r` | external opportunity rate (what locked capital could earn elsewhere), per week |
 | `d` | dilution rate = minted / supply, per week |
-| `ρ` | `r + d` — the full carry cost of locked CC. **Right for the BUY decision, wrong for the STAKE decision:** dilution hits staked and unstaked CC alike, so the *differential* carry of staking rather than holding is `r` alone. Since the reward scales with `r + d` while the differential cost scales with `r`, every anti-farming margin here degrades linearly in `d`. |
+| `ρ` | `r + d` — the full carry cost of locked CC. **Right for the BUY decision, wrong for the STAKE decision:** dilution hits staked and unstaked CC alike, so the *differential* carry of staking rather than holding is `r` alone. Since the reward scales with `r + d` while the differential cost scales with `r`, every anti-farming margin here degrades linearly in `d`. **Under V3 (`r/kourtv3`) `d` is also carry on a GNOT-denominated claim**, not only on voting weight: every coin is owed `floor(reserve × amount / TotalSupply)` (`redeemQuote`, redeem.gno), so an emission of `m` coin against a supply of `N` multiplies each holder's per-coin return by exactly `N/(N+m)`. Same `d`, now with a µGNOT figure attached (TWOWAY.md §4). |
 | `T_c` | conviction time: stake → answer-freeze |
 | `T_L` | lock time: stake → withdraw. **ASSUMED ≈ 1.5 × T_c here ("adds 72h + escrow"); MEASURED 1.039 × T_c.** The escrow half was never built — `WithdrawStake` is deliberately unpausable, so principal is never held past the verdict. Every result below that divides by `T_L` is optimistic by ~1.44×, and §"Matched farmer" is wrong *because* of it. |
 | `y` | yield per conviction actually paid (the effective rate) |
@@ -53,8 +53,20 @@ the scheduled figure, actual y* ≈ 3.75%/wk vs a 0.89%/wk rate, and honest
 break-even needs p > 1: **the early court pays nobody**. With live d the 15%
 anti-farm margin tracks the true y* at every supply level. Manipulation check:
 buying CC lowers everyone's rate including yours (self-defeating for a
-yield-seeker); burning your CC raises the rate at your sole cost — every
-manipulation is self-costly. Self-bound unchanged: draws are conviction-based,
+yield-seeker); redeeming your CC raises the rate for those who stay — and
+under V3 **not at your sole cost**, because `Redeem` (redeem.gno) pays the
+redeemer the pro-rata return `floor(reserve × amount / TotalSupply)` rather
+than nothing. A mass redemption therefore lifts stayers' rate for free to the
+redeemer, which is why the lift is *bounded* rather than priced: `rollPeriod`
+(emission.gno) takes `d_eff` as the min of realized dilution and the budget
+ceiling, the ceiling is 38 bps (`budgetBpsFPStart`, stake.gno), so the
+published rate `rateBpsFP = 2.55 × (r₀ + d_eff)` never exceeds
+`2.55 × (25 + 38) = 160 bps/wk`; and a redeemer who wants back in pays the
+marginal price for a coin whose return is at most half of it (TWOWAY.md §4,
+threat A14: an accepted nuisance). On a court founded one-way
+(`StartOneWayCourt`, court.gno) `Redeem` refuses and the V2 sentence stands —
+giving up your CC costs you the whole coin. Every remaining lever is
+self-costly or capped. Self-bound unchanged: draws are conviction-based,
 so `d_real ≤ rate × staked-fraction` — no court dilutes faster than its own
 participation earns.
 
@@ -82,6 +94,75 @@ y*₀ = 2(0.35%)(1.5) = 1.05%/wk → **rate₀ = 0.89%/wk per unit conviction**.
 | Break-even staker | p ≈ 0.59 | ≈ 0 |
 | Good staker (p = 0.7) | one side | ≈ +0.19·ρ·T_L ≈ +0.10%·stake/wk-equivalent |
 | Mill (post-v0.20 repricing) | self-claim | negative at modest flag probability — now economically supplied (bounty = flagger's own bond, paid flag-voters); deposit slash + tier-0 at risk vs mid-tier crumbs. (The old "q ≥ 0.2" figure was retracted as unreproducible, V2-1.) |
+| Redeemer (V3) | returns uncommitted coin through `Redeem` | paid `floor(reserve × amount / TotalSupply)` µGNOT — at most the marginal price, about half of it right after an offering, less as emission mints (see "V3: what a coin returns" below). Committed coin cannot be redeemed (`mustSpendable`, redeem.gno). Neutral to stayers' per-coin return (TWOWAY.md I5); raises stayers' *rate* only up to the 160 bps/wk cap (A14). Below the break-even position `x*` an early buyer recovers above cost from later buyers — disclosed, not closed. |
+
+## V3: what a coin returns (INTERNAL — TWOWAY.md §4 carries the proofs)
+
+> Same hygiene as the header: none of these figures — the grid, the break-even
+> position, any percentage — may appear in public copy, render or marketing.
+> Public copy says only: "less than half its price right after an offering,
+> and less as emission mints." The held share is never presented as backing,
+> NAV or worth, and the burn is never marketed as scarcity (PLAN §7.4; Munchee).
+
+Under `r/kourtv3` a payment **splits** (`splitPayment`, redeem.gno). The burn
+share `φ` — `BurnBps`, 1000 bps at launch, DAO-admin-set realm-wide within
+`[500, 5000]` bps (`mustSaneBurnBps`) — goes to the keyless sink exactly as V2
+burned the whole payment; the rest is held per court as `reserve`. `Redeem`
+pays `floor(reserve × amount / TotalSupply)` (`redeemQuote`, 128-bit) and goes
+through `mustSpendable` like every other outflow, so staked and vote-locked
+coin cannot be cashed out. There is no exit fee. A court may be founded
+one-way (`StartOneWayCourt`, court.gno): every payment burns in full and
+`Redeem` refuses it forever; META is founded one-way at init. Franchise and
+directory rank key on the burned share only (`accrueFranchise`, meta.gno;
+`reindexBurn`, modrender.gno). The three mainnet courts stay one-way at their V2
+path forever; their 481.13 GNOT sits at a keyless address and is
+unrecoverable; kourtv3 is a fresh realm and its courts start empty.
+
+Symbols as in TWOWAY.md §4: `S` the curve position, `P = S/D` the marginal
+price, `E` coin minted by emission, `N = S + E` the supply, `k = E/S` (≤ 0.78
+over a court's lifetime), `φ` the burn share. With no redemptions the reserve
+is `R = (1−φ)·S²/2D`, so the per-coin return is
+
+```
+R/N = (1−φ)·P / (2(1+k))
+```
+
+**The marginal buyer's immediate return**, φ = 0.10 — what a coin bought at
+the current price returns if redeemed at once:
+
+| k = E/S | return ÷ marginal price `(1−φ)/(2(1+k))` | return ÷ average price paid |
+|---|---|---|
+| 0 | 0.45 | 0.90 |
+| 0.2 | 0.375 | 0.75 |
+| 0.5 | 0.30 | 0.60 |
+| 0.78 | 0.253 | 0.506 |
+
+So a buy followed at once by a redeem loses at least 55% of outlay at k = 0
+and about 75% by k = 0.78. The return is at most the marginal price under any
+interleaving of buys, redemptions and emission (TWOWAY.md §4 proof (c)); the
+"at most half" form holds while `N ≥ S`, which heavy redemption can break —
+the marginal bound is the one that prevents arbitrage.
+
+**Break-even position.** A buyer at position fraction `x` who paid the
+marginal price there and returns coin once the court has filled to `S`
+recovers `(1−φ) / (2x(1+k))` of their outlay. Break-even is
+
+```
+x* = (1−φ)/(2(1+k))      = 0.45 at k = 0,  0.253 at k = 0.78
+```
+
+Below `x*` an early position recovers above cost — funded by later buyers,
+never by other holders, since a redemption never lowers what stayers are owed
+per coin (TWOWAY.md I5). A founder at x = 0.1 recovers 4.5× at k = 0, 2.5× at
+k = 0.78. **Accepted and disclosed**, not closed by mechanism (a per-position
+cost basis would strand emission-earned and transferred coin); the whitepaper
+carries it qualitatively and counsel weighs it (TWOWAY.md §8).
+
+**What this does to the memo above.** `d` now carries a µGNOT figure (the `ρ`
+row); the manipulation check gains the redeemer (the d_n rule); the actor
+table gains a row. The schedule, the 0.85 margin, the 80/8/7/5 split and the
+caps are unchanged — emission mints exactly as before, against a claim that is
+now GNOT-denominated. Nothing in this section changes `rate_n`.
 
 ## Sizing B and R_max (v0.32 — OWNER: 20% ceiling)
 

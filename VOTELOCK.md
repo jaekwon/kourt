@@ -72,12 +72,23 @@ needs to answer it first, not patch the six sites:
 
 - `check-nontransferable.py` rebuilt on the axis that matters. The inversion earlier
   the same day had added a required reputation-noun suffix, and `SellCC` /
-  `RedeemForGNOT` both silently began to PASS — so the one property this design
-  treats as existential ("the payment is burned, nothing ever redeems") had no
-  tripwire at all. Verb lists were the wrong instrument: they trip on
-  `WithdrawStake` and V1's three `Redeem*`, all of which return a holder's own CC
-  and touch no GNOT. The guard now pins `SendCoins` to `buy.gno` at an exact count
-  — two in kourtv2 (the burn, and the buyer's dust change), one in kourtv1.
+  `RedeemForGNOT` both silently began to PASS — so the property kourtv2 treated
+  as existential had no tripwire at all. (Its quoted form, "the payment is
+  burned, nothing ever redeems", is kourtv2's own gloss in `buy.gno` and
+  `courtburn.gno`, not a sentence `REGULATIONS.md` contains; what that file
+  listed were the mitigants "non-redeemable in-protocol" and "no treasury
+  expectations (GNOT burned)", both withdrawn by kourtv3 — TWOWAY.md §8.) Verb
+  lists were the wrong instrument: they trip on `WithdrawStake` and V1's three
+  `Redeem*`, all of which return a holder's own CC and touch no GNOT. The guard
+  pins `SendCoins` per file at an exact count — two in kourtv2's `buy.gno` (the
+  burn, and the buyer's dust change), one in kourtv1. Under kourtv3 the property
+  it guards is no longer "nothing ever redeems" but "a held share with one exit":
+  a tenth of every payment burns to the keyless sink (`BurnBps`, `splitPayment`),
+  the rest is held per court as `reserve`, and `Redeem` (`redeem.gno`) is the one
+  user-destined send beside Buy's dust change — required by the guard's
+  `PRO_RATA_ONLY` rule to pay the caller exactly the payout debited from
+  `c.reserve` on the line above it, `floor(reserve × amount / TotalSupply)`,
+  behind `mustSpendable`. A `SellCC`, or a second door, still fails the build.
 - Two selftest controls that had been **silently dead**: the coin-`Transfer` control
   (planting what the guard now permits) and the Makefile coupling anchor (moved when
   `ccwrap` joined `realm-test`). `make selftest` is not in the default gate, which

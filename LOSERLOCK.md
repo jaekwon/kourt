@@ -36,7 +36,9 @@ out of scope — the question is now *how long*, not *whether the spread is wort
 ## 2. What the lock must NOT do
 
 - **Principal must return 100%.** `REGULATIONS.md`: the whole escape rests on nothing being
-  risked upon the outcome. A lock delays; it must never reduce.
+  risked upon the outcome. A lock delays; it must never reduce. [counsel: re-opine — see
+  TWOWAY.md §8: under kourtv3 the pro-rata exit reads reserve and supply only, never a verdict,
+  but every bond forfeiture now raises every holder's share, the prevailing party's included.]
 - **It must not hold the winner.** Only the side the verdict went against.
 - **It must not make a claim unanswerable.** A systematic incentive to drain before the answer
   would push claims below the answerability floor on thin courts, where they then die unanswered
@@ -414,9 +416,15 @@ pressure than today.**
 
 **Sybil: genuinely capital-keyed, verified** — positions are `(address, side)` rows that sum, so
 splitting changes nothing, and the lock is a spend restriction rather than a withdrawal delay (the
-locked leg cannot be recycled into the next claim). **Standing dependency, now load-bearing twice:**
-this binds only because a court coin has no transfer entrypoint, and `MODERATION.md` wants meta-CC
-transferable. The lock deepens that tension.
+locked leg cannot be recycled into the next claim). **Standing dependency, now load-bearing twice — and since
+discharged rather than deepened:** when this was written the lock bound only because a court coin
+had no transfer entrypoint, and `MODERATION.md` wanted meta-CC transferable. Both exits now exist —
+`TransferCC` (`lock.gno`) and, under kourtv3, `Redeem` (`redeem.gno`, the court's pro-rata return
+in GNOT) — and each goes through `mustSpendable`, which refuses whatever `disposable()` does not
+cover: the balance less the larger of the stake lock and the vote lock. So a locked leg can be
+neither sold nor redeemed (`TestCommittedCoinCannotBeRedeemed`), which is the property this
+sentence was standing on; the tension was resolved by writing the lock at the spend rather than
+by keeping the coin immobile.
 
 ### 8.8 Two loose ends, and one accepted side effect
 

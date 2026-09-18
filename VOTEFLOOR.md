@@ -1147,6 +1147,15 @@ Against 29 outflows (transfers and burns) spread over claim, open the rewards, d
 modvote. So the invariant is six components, not one, and a walk over claims alone would not
 close it.
 
+Under kourtv3 it gains a seventh, and the seventh is denominated in GNOT rather than CC: per
+court, `CourtBurnedGNOT + ReserveGNOT + RedeemedGNOT == paidIn` — the burn share sent to the
+keyless sink, the held share ledgered as `reserve`, and every µGNOT `Redeem` has paid back out
+must together be every µGNOT the curve ever took. That one IS asserted, after every step of a
+scripted interleaving of buys and redeems across two courts, by `TestReservesReconcileWithTheBank`
+(`redeem_test.gno`), together with its physical half: the realm's own bank balance equals
+Σ `ReserveGNOT` and the sink holds exactly the burned shares. The six CC-denominated components
+remain the gap this section describes.
+
 **NOT WRITTEN THIS FIRING, and the reasons are worth stating rather than leaving it to look
 like an oversight.** First, validating it needs `gno test` runs, and a 389-row regression pass
 is holding five shards — the operational notes already record contention stretching a slice

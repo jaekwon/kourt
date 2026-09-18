@@ -468,10 +468,16 @@ more via timeout than it saves via snipe on any court with a thin answerer bench
   per-claim destruction from 19% to **89.3%** (**M**). There is no fourth branch.
 - **Loser-pays-winner, anywhere.** `REGULATIONS.md:153-160` banks "no loser-pays-winner
   transfer exists anywhere" as the fix that removed the #1 vet residual on **both** the
-  gambling and CFTC axes. Every forfeiture **burns**; the prevailing party is **minted** a
-  capped slice. Burn-anchored mints are self-collateralizing (nothing mints unless something
-  burned, capped at 80% of it), which is why the collateral problem lives **only** in the
-  junior draw.
+  gambling and CFTC axes [counsel: re-opine — see TWOWAY.md §8]. Every forfeiture **burns**; the
+  prevailing party is **minted** a capped slice. Under the two-way coin (`r/kourtv3`, TWOWAY.md)
+  a burn is no longer a cost that lands on nobody: `Redeem` pays floor(reserve × amount /
+  TotalSupply) and the reserve does not move when coin burns, so every forfeiture lowers the
+  denominator and raises every remaining holder's pro-rata return — the prevailing party's
+  included, in proportion to their holding and not to their having prevailed. The payout reads
+  reserve and supply only, never a verdict; whether that leaves "no loser-pays-winner" standing
+  is counsel's to say, not this file's. Burn-anchored mints are self-collateralizing (nothing
+  mints unless something burned, capped at 80% of it), which is why the collateral problem lives
+  **only** in the junior draw.
 - **Redistributing a sniper's bond to the stakers.** Makes the prize loser-funded and
   bilateral — the one thing escape (b) cannot survive.
 - **A minimum stake on the declared side.** Free to a sniper: stake is no-loss, and stake
@@ -1352,10 +1358,15 @@ own-stake (average hold *time*) is scale-free, so 1 base unit held for the claim
 maximal. Time alone is free; the signal must be capital×time.
 
 **Conviction cannot be bought.** `cs.stakers.Set` has exactly **one** write site and there is **no
-`Remove`**; CC is soulbound, with `scripts/check-nontransferable.py` existing to trip if that
-changes — its own words: *"a coin that cannot change hands cannot have its accrued conviction
-sold."* Selling the key transfers **non-exclusively** (the seller can still burn the bond), so it
-is a lemons market, not a market.
+`Remove`**. CC itself is no longer soulbound — `TransferCC` (`lock.gno`) moves coin between holders,
+and in `r/kourtv3` `Redeem` (`redeem.gno`) returns it for the court's pro-rata GNOT — but conviction
+lives on `stakePos`, keyed (address, side), so neither carries it: selling coin sells the future
+ability to earn conviction, not the conviction earned. `scripts/check-nontransferable.py` no longer
+asserts that coin cannot move; it asserts that standing cannot (`SUSPECT`) and pins GNOT's two exits
+from the realm — Buy's dust change and Redeem's pro-rata payout (`PRO_RATA_ONLY`). Both coin exits
+refuse committed coin, `TransferCC` against `DisposableOf` and `Redeem` through `mustSpendable`, so a
+staked position cannot be sold or cashed out from under its bond. Selling the key still transfers
+**non-exclusively** (the seller can still burn the bond), so it is a lemons market, not a market.
 
 **No cold-start problem:** `u` is a ratio of two convictions over the same window, so it is
 age-invariant — **M:** 11.1100% at the 3h maturity minimum, *bit-identical* to 11.1100% at 11
@@ -1641,7 +1652,9 @@ cannot see that bond?* — with **yes, at MID, provably.**
 5. **C2 × C5** — disjoint by grep. C2 edits `quorumFloor` and the credential bar; the demotion
    reads `qualityBars`. §C2's "qualityBars needs no change" verified.
 6. **Sybil sweep of the settled design** — `demotionBar` turnout is a **sum**, so splitting across
-   N addresses is neutral; CC is soulbound; `isParticipant` has exactly the 5 sites §12.7
+   N addresses is neutral; CC moves between addresses only through `TransferCC` and leaves the
+   realm only through `Redeem`, both refusing committed coin, and conviction stays on `stakePos`
+   whichever way the coin goes; `isParticipant` has exactly the 5 sites §12.7
    tabulates; the re-anchored credential bar keys on supply and `ladderWindow` on `failedRounds`.
    **Nothing address-keyed that a sybil moves.**
 7. **`ladderWindow`'s set-once lock** — the liar prefers the short window, but a *decided* first

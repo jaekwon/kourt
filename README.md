@@ -12,7 +12,7 @@ to read, build or test anything here.
 
 ## What is in here
 
-Twelve packages. The `p/` ones are general and were written to be read on their
+Fourteen packages. The `p/` ones are general and were written to be read on their
 own; the `r/` ones are the product.
 
 ### `p/` — libraries
@@ -22,7 +22,7 @@ own; the `r/` ones are the product.
 | [`p/governor`](p/governor) | A proposal engine. Holds proposals, epochs, quorum floors, the roll and the tally — and decides nothing about what agreement *means*. Adoption yields a kind and a payload; the installing realm turns those into an effect. |
 | [`p/grc20votes`](p/grc20votes) | A GRC20-shaped ledger that remembers what every holder's voting power *used to be*, so a vote is weighed at the block its question opened. |
 | [`p/checkpoint`](p/checkpoint) | Remembers what a number used to be. The primitive under `grc20votes`. |
-| [`p/curve`](p/curve) | A linear, one-way bonding curve: issue a token against a reserve, price rising with position. One-way is the safety property, not a limitation. |
+| [`p/curve`](p/curve) | A linear, one-way bonding curve: issue a token for a payment, price rising with position. One-way means the *position* never walks back — the curve prices the next coin off total-ever-minted (`curve.gno`), so the same stretch is never sold twice — and that is the safety property, not a limitation. A realm that pays holders out (`r/kourtv3`'s `Redeem`) does so pro-rata from its own held reserve and leaves the position where it was; it never re-sells the stretch. |
 | [`p/cshares`](p/cshares) | A conditional-share ledger — the collateral-conserving core of a prediction market, with custody of the collateral left to the caller. |
 | [`p/tickbook`](p/tickbook) | A tick-quantised central limit order book: gas-bounded, integer-only, on a fixed price grid. |
 | [`p/twap`](p/twap) | A fixed-window trailing average of an integer series. Cheap to keep, cheap to read, hard to move with a one-block spike. |
@@ -31,11 +31,13 @@ own; the `r/` ones are the product.
 
 | Realm | What it is |
 |---|---|
-| [`r/kourtv2`](r/kourtv2) | The product. Courts, claims, answers, disputes, escrow, moderation, curation, rendering. The largest thing here by a wide margin. |
-| [`r/kourtv1`](r/kourtv1) | The audited predecessor, kept intact as the reference V2 is measured against. Not superseded in the repository, only on chain. |
+| [`r/kourtv3`](r/kourtv3) | The product: courts, claims, answers, disputes, escrow, moderation, curation, rendering, on a **two-way coin** — each curve payment splits into a burned share and a held share, and `Redeem` pays a holder the court's pro-rata share of what it holds. A court may instead be founded one-way (`StartOneWayCourt`); the meta court is. See [TWOWAY.md](TWOWAY.md). The largest thing here by a wide margin. |
+| [`r/kourtv2`](r/kourtv2) | The frozen mirror of what runs on gnoland-1: tests may be fixed, behaviour may not. Its coin is one-way — every payment burned — and its three mainnet courts stay that way, at their path, forever. |
+| [`r/kourtv1`](r/kourtv1) | The audited predecessor, kept intact as the reference V2 and V3 are measured against. Not superseded in the repository, only on chain. |
 | [`r/govern`](r/govern) | An analog of OpenZeppelin's ERC20Votes + Governor for gno.land, and the worked consumer of `p/governor`. |
 | [`r/offerer`](r/offerer) | A fixture that matters: a *second* realm extending the same governor from its own package, proving the extension point works across a realm boundary rather than only within one. |
 | [`r/ccwrap`](r/ccwrap) | Makes a court coin tradeable on a DEX without handing the DEX any authority inside the court. |
+| [`r/guilds`](r/guilds) | Records which Discord server a court's moderators chose — one string per court — and asks `r/kourtv3` who may set it, so the court's own moderator list stays the only authority. A separate realm because a deployed realm is not edited. |
 
 ### How the governance layer fits together
 
@@ -118,7 +120,7 @@ guards). Nothing else.
 ### The targets
 
 ```
-make test             the gno suites for all 12 packages, plus the source guards
+make test             the gno suites for all 14 packages, plus the source guards
 make check            everything above that needs no node and no network
 make txtar-test       the realms on a real, in-memory gnoland node
 make chain-test       the realms on a live gnodev (needs one at :26657)
@@ -147,8 +149,9 @@ matching is worse than no check:
   scanning nothing.
 
 `make selftest` goes further: it breaks each guard's subject on purpose and
-requires the guard to notice. `scripts/mutations-kourtv2*.json` does the same to
+requires the guard to notice. `scripts/mutations-kourtv3*.json` does the same to
 the realm — several hundred deliberate defects, each asserting which suite objects.
+The corpus follows the product realm; `r/kourtv2` is frozen and no longer mutated.
 
 ---
 
@@ -159,7 +162,8 @@ got there is worth recording: a `make mutate` run was killed part-way, leaving i
 mutants in the working tree, and the next commit swept them up. The commit is
 `d639cea` in the application repository, whose message is entirely about wallet
 signing and never mentions the realm. Both changes were verbatim the `find` →
-`replace` of two rows in `scripts/mutations-kourtv2-KNOWN-GAPS.json`:
+`replace` of two rows in what was then `scripts/mutations-kourtv2-KNOWN-GAPS.json`
+(the same two rows now live in `scripts/mutations-kourtv3-KNOWN-GAPS.json`):
 
     if CourtCount() > 1  ->  if CourtCount() > 2      the arming gate widened
     tcEverArmed = true   ->  (deleted)                the disclosure never set

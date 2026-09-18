@@ -783,8 +783,13 @@ actor's one-time purchase and never grows*. The binding threshold is not 50%
 but **5%** (`quorumFloor`'s supply arm), so a 5% pivot costs ~0.108× the
 deployer's genesis spend — on the order of **~54–108 GNOT, forever, at any
 platform size**. Pro-rata makes the parameter **endogenous**: ~0.053×
-cumulative platform burn, i.e. ~49× better at 100k GNOT burned and rising with
-adoption. It also fixes the selection problem — a franchise sold at the door
+cumulative platform burn, i.e. ~49× better at 100k GNOT *burned* and rising
+with adoption. Under V3 (`r/kourtv3`) only the burned share of each payment
+is burned — `B = φ × non-META curve volume`, with `φ = BurnBps`, a tenth at
+launch (redeem.gno) — so the figure scales by φ: ≈4.9× at 100k GNOT of volume
+through the courts at a tenth, still rising with adoption. The capture table's
+multiples are unchanged; the absolute base is what φ trades (TWOWAY.md §5, §9).
+It also fixes the selection problem — a franchise sold at the door
 selects for *appetite for the lever*, the worst possible filter for a review
 body; burned capital selects for diversified exposure to the platform's
 credibility.
@@ -796,9 +801,17 @@ credibility.
    an unbounded **√N free-mint** of the platform's master governance token
    (10,000 shell courts ⇒ 100× the meta-CC for the same GNOT). Per-GNOT makes
    the court you burn into irrelevant — and this is safe *only because the GNOT
-   is genuinely burned to a keyless sink with no redemption anywhere*. **Record
-   that as a tripwire: it breaks instantly if a treasury or redemption is ever
-   reintroduced.** Corollary: per-court caps and age/tier weighting are BOTH
+   counted is genuinely burned to a keyless sink*. **The tripwire, restated for
+   V3:** `r/kourtv3` reintroduced a held share and a `Redeem` (redeem.gno), and
+   the franchise HOLDS because `Buy` accrues it on the burned share alone —
+   `accrueFranchise` (meta.gno) is passed `burned`, never the held share. The
+   held share is exactly what `Redeem` pays back, so a franchise credited on it
+   would be minted for free: found a court, Buy, claim, Redeem, repeat. **It
+   breaks the instant franchise is ever credited on the held share, or on
+   anything else Redeem can pay back**; `TestAShellCourtLapAccruesOnlyWhatItBurns`
+   pins that a lap accrues exactly what it burned. The burn-ranked directory
+   keys the same way (`reindexBurn`, modrender.gno). Corollary: per-court caps and
+   age/tier weighting are BOTH
    sybil-defeated by free court creation, so uniform-linear-per-µGNOT is the
    only defensible form.
 2. **Meta's own curve must not stay a cheap side door.** `c.minted` advances
@@ -919,8 +932,8 @@ every court's ledger with the literal symbol `"COURT"`:
 
 Wallets, explorers and indexers key their display on **symbol**, not package
 path, so every court's coin renders identically while having genuinely
-different backing and zero fungibility (each is its own one-way curve with no
-redemption). That is a live phishing vector — a malicious court's coin is
+different backing and zero fungibility (each is its own curve — one-way or two-way by its founder's choice, TWOWAY.md —
+and no court's coin converts into another's). That is a live phishing vector — a malicious court's coin is
 pixel-identical to the flagship's — and presenting distinct assets with
 distinct risk under one label is a consumer-protection problem independent of
 any securities question. **Fix before a second court exists.**
@@ -985,6 +998,32 @@ decision must be made before launch, not after.
   individual argument edge (§7), not just a node/claim. Constitution-consistent
   and no re-vet needed (an edge is zero-weight, text-free, so an edge hide is
   strictly weaker than the audited claim hide). Build hooks it when edges land.
+- **v0.64 — the two-way coin (`r/kourtv3`) and what it did to §13.8 (owner
+  decision; TWOWAY.md is the record).** kourtv3 splits every payment: a burn
+  share (`BurnBps`, a tenth at launch, DAO-admin-set realm-wide within
+  `[500, 5000]` bps) goes to the keyless sink exactly as V2 burned the whole;
+  the rest is held per court and returned pro-rata by `Redeem` —
+  `floor(reserve × amount / TotalSupply)`, through `mustSpendable`, no exit
+  fee. A court may be founded one-way (`StartOneWayCourt`); META is founded
+  one-way at init. The three mainnet courts stay one-way at their V2 path
+  forever — their 481.13 GNOT sits at a keyless address, unrecoverable — and
+  kourtv3 is a fresh realm whose courts start empty.
+  - **The §13.8 tripwire held.** Fix 1's "safe only because there is no
+    redemption anywhere" became "safe because franchise and rank key on the
+    burned share only": `accrueFranchise` and `reindexBurn` are passed
+    `burned`, never the held share, so a shell-court lap costs exactly what it
+    earns (`TestAShellCourtLapAccruesOnlyWhatItBurns`). Restated in §13.8 as
+    the condition it always was: it breaks if franchise is ever credited on
+    anything Redeem can pay back.
+  - **The "~49×" figure scales by φ.** The endogenous base is
+    `φ × non-META curve volume`, so the v0.11 headline reads ≈4.9× at 100k GNOT
+    of volume at a tenth. The capture table's multiples stay as written; the
+    absolute base is what moved — the trade φ makes, and why it is the owner's
+    number (TWOWAY.md §5, §9).
+  - Public copy states the return qualitatively only ("less than half its
+    price right after an offering, and less as emission mints"); the held
+    share is never described as backing or value. The grids live in
+    ECONOMICS.md and TWOWAY.md §4, internal.
 - **v0.63 — the StartCourt creation fee, reversed (owner decision).** v0.8.2
   resolved "no GNOT creation fee" because a fee in the source cannot be sized
   without a USD oracle. The objection was about a CONSTANT, and it is answered by
@@ -3535,7 +3574,8 @@ decision must be made before launch, not after.
 - **v0.11 — the meta-franchise vet (owner proposal; 3 identical passes, all
   ADOPT WITH FIXES; §13.8 carries the full consensus)**. Distributing meta-CC
   pro-rata to GNOT burned on every court makes meta's security budget
-  endogenous to platform adoption (~49× at 100k GNOT burned) instead of a fixed
+  endogenous to platform adoption (~49× at 100k GNOT burned; under V3 the base
+  is the burned share, so ×φ — see v0.64) instead of a fixed
   ~54–108 GNOT forever, and replaces an electorate self-selected for appetite
   for the lever with one selected by sunk capital. Six unanimous conditions:
   mint on `spent` µGNOT never on CC (an unbounded √N free-mint otherwise);

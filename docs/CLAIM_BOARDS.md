@@ -1753,8 +1753,8 @@ The page I wrote to explain the system opened its load-bearing section with:
 > Stake GNOT on YES or NO and the stake stays yours.
 
 **You stake the court's coin, not GNOT.** `stake.gno`'s `Stake` says so in its
-own first line — "Stake backs one side of a claim with CC" — and GNOT only ever
-buys that coin, one way, through the curve. This is the worst sentence on that
+own first line — "Stake backs one side of a claim with CC" — and GNOT buys that coin through the curve — one way under V2; under V3 (TWOWAY.md)
+a holder can also return coin for a pro-rata share of what the court holds. This is the worst sentence on that
 surface to get wrong: a reader who believes they are staking GNOT has the model
 inverted before paragraph two, and every later sentence about 1× and about
 earning reads against the wrong asset.

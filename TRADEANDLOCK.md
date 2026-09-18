@@ -1,15 +1,20 @@
 # TRADEANDLOCK.md — tradeable court coins
 
-**Status: PLAN. BOTH PARTS LIVE — Part A (transferability) and Part B′ (universal unbonding,
-winners exempt).** Part B (loser-only) stays superseded by B′.
+**Status: PLAN. Part A (transferability) LIVE. Part B′ (universal unbonding, winners exempt)
+BUILT, MEASURED, DROPPED** — Part B″ below records why, and the branch
+`unbonding-measured-and-dropped` (`49c31b7`) preserves it. Part B (loser-only) stays superseded.
+Under kourtv3 the coin also has a protocol exit priced below the curve, `Redeem` — §A1.
 
 - **(A)** `kourt:XYZ` court coins become **transferable**. Reputation does **not**.
-- **(B′)** **Everyone** waits to exit; **winning exempts you**; switching sides is free. The penalty
-  for losing is emergent — losers wait, winners don't, nothing is taken.
+- **(B′)** — *dropped* — **Everyone** waits to exit; **winning exempts you**; switching sides is
+  free. The penalty for losing is emergent — losers wait, winners don't, nothing is taken. Built and
+  removed because a one-week wait is a 25 bps tax against a ~12× edge (Part B″).
 
-**§0's gate is required under both**, for two independent reasons now: it keeps the unbonding real,
-*and* it stops staked capital being sold out from under a live stake. `spendable()` already nets
-locked balances, so one gate does both.
+**§0's gate is required regardless.** With unbonding dropped its one live job is the second of the
+two it was written for: it stops committed capital being sold — or, under kourtv3, redeemed — out
+from under a live stake or vote. `spendable()` already nets locked balances and `disposable()` nets
+the larger of the stake lock and the vote lock, so one gate, `mustSpendable`, does it for
+`TransferCC`, `TransferFromCC` and `Redeem` alike.
 
 **UX is a stated owner concern and it is the right one** — see §B′7, which is where the honest cost
 of B′ lives.
@@ -41,9 +46,16 @@ commit**, not as a follow-up.
 - Add a transfer entrypoint to the court coin's exported surface. **Gated on `spendable()`**, which
   already nets `lockedOf` from `BalanceOf`, so staked *and* unbonding capital is untransferable by
   construction rather than by a second check.
-- The one-way bonding curve is **unchanged** — GNOT still enters once and is burned, there is still
-  no burn-for-GNOT exit, and no treasury appears. Transferability adds a **secondary** market; it
-  does not add a redemption.
+- The bonding curve's **position** is unchanged — `c.minted` is monotone, prices the next coin off
+  total-ever-minted, and nothing walks it back. Transferability itself adds a **secondary** market,
+  not a redemption. What kourtv3 adds beside it is a **pro-rata return** from the court's held
+  share, priced below the curve: a tenth of every payment burns to the keyless sink (`BurnBps`,
+  `splitPayment` in `redeem.gno`, called from `buy.gno`) and the rest is held per court as `reserve`; `Redeem` (`redeem.gno`)
+  pays `floor(reserve × amount / TotalSupply)` for uncommitted coin, never above the curve's price
+  for the next coin — less than half of it right after an offering, and less as emission mints. A
+  court may still be founded one-way (`StartOneWayCourt`), the meta court is, and on V2's three
+  mainnet courts nothing ever returns. The held share is not backing and the return is not a
+  value; it is that arithmetic.
 
 ### A2. What must NOT change — reputation
 
@@ -78,11 +90,15 @@ three things that "need transferability to be false". **Each has to be re-opened
 
 ### A4. THE RISK I THINK MATTERS MOST, and it is not the legal one
 
-**Nearly every safety bar in this realm is denominated in % of court supply**, and today the *only*
-way to acquire supply is the one-way curve — which burns GNOT at a monotonically rising price. So
-clearing a bar has a known, rising, non-negotiable cost. **A secondary market lets supply be
-acquired at whatever it clears at, which may be far below curve price — so every bar may get
-cheaper to clear at once.** The bars, enumerated:
+**Nearly every safety bar in this realm is denominated in % of court supply**, and until coins
+became transferable the *only* way to acquire supply was the curve — one-way under V2, burning
+GNOT at a monotonically rising price; under kourtv3 the payment splits, but the curve position
+still rises and `Redeem` never walks it back, so entry keeps the same shape. So clearing a bar had
+a known, rising, non-negotiable cost. **A secondary market lets supply be acquired at whatever it
+clears at, which may be far below curve price — so every bar may get cheaper to clear at once.**
+Under kourtv3 that market has a floor the protocol bids at — the pro-rata return, itself below
+half the curve price right after an offering — so "far below" is bounded below by the return
+value rather than by nothing (RENTEDWEIGHT.md, the V3 row). The bars, enumerated:
 
 | bar | protects |
 |---|---|
@@ -103,7 +119,10 @@ did not expose are no longer conservative — they are calibrated for a world th
 `REGULATIONS.md` §6 lists non-transferable positions as *"helps securities, can forfeit preemption;
 product cost"*, and notes elsewhere that governance + utility + yield together *"all pull back
 toward Howey"*. **Transferability adds a market, therefore a price, therefore a profit
-expectation** — a direct hit on the prong the file says is load-bearing. Against that, the
+expectation** — a direct hit on the prong the file says is load-bearing. kourtv3's pro-rata
+`Redeem` withdraws two of `REGULATIONS.md` §7.2's mitigants outright — "non-redeemable in-protocol"
+and "no treasury expectations (GNOT burned)" — and TWOWAY.md §8 lists what replaces them for
+counsel to weigh rather than for this file to conclude. [counsel: re-opine — see TWOWAY.md §8] Against that, the
 2026-08-20 append-log entry finds CLARITY's **network token** / **ancillary asset** definitions may
 fit a court coin, and a market-structure category presupposes a market. **Counsel flags both ways;
 this plan asserts nothing.**
@@ -161,11 +180,13 @@ real finding is that the exemption was worth less than it looked like to anyone.
 ### What was RIGHT about it, if a wait ever returns
 
 - **Express the wait as a subtraction inside `spendable()`, never as a delayed
-  return.** Since court coins became transferable there is a real exit to GNOT, so
-  a delay that left the coin spendable would be worth nothing — the loser sells on
-  a DEX instead of waiting. `spendable()` is the one function every door narrows
-  to: the five bonded entrypoints, the claim deposit, a fresh stake, `TransferCC`,
-  `TransferFromCC`, and therefore any wrapper or pool. **B′1's whole premise, that
+  return.** Since court coins became transferable there is a real exit to GNOT —
+  and under kourtv3 a second, `Redeem`, at the court's pro-rata return — so a
+  delay that left the coin spendable would be worth nothing: the loser sells on a
+  DEX or redeems instead of waiting. `spendable()` (and `disposable()`, which
+  adds the vote lock) is the one function every door narrows to: the five bonded
+  entrypoints, the claim deposit, a fresh stake, `TransferCC`, `TransferFromCC`,
+  `Redeem`, and therefore any wrapper or pool. **B′1's whole premise, that
   a lock is a lock, is only true if it is written there.**
 - **An undecided claim must exempt both sides** (`noDecision`: dead claim or
   `provClose`). Otherwise an unanswerable claim becomes a way to freeze other
