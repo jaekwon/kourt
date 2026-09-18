@@ -39,9 +39,21 @@ NAMESPACE="g1ecsuj0q572jr0dhu29q9njtnmw03hyu7tyyvv6"
 COURT_PATH=""          # default: the same namespace, named `kourt`
 KEY=""
 MODE="print"
-GAS_WANTED="50000000"
-GAS_FEE="1000000ugnot"
+# MEASURED, NOT GUESSED. `--simulate only` against gnoland-1 put this deploy at
+# 10,508,661 gas; 15,000,000 is that with room for the realm to grow a function
+# without the first attempt failing out of gas. The fee is the FLOOR the chain
+# charges for that ceiling — gas price is 1ugnot/1000gas, so 15,000,000 wanted
+# needs 15,000ugnot — plus margin. Both are overridable; neither is a price
+# anybody should have to discover by having a transaction rejected.
+GAS_WANTED="15000000"
+GAS_FEE="25000ugnot"
 DEPOSIT=""
+# gnokey asks for the key's password on a TTY. A script run from anything that
+# is not one — CI, a harness, an agent — cannot answer, so the password may come
+# down stdin instead. INSECURE IS THE RIGHT WORD AND IT IS GNOKEY'S OWN: the
+# value is visible to anything that can read the process's input. Never a flag
+# holding the password itself, which would put it in the process table.
+PW_STDIN=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -54,6 +66,7 @@ while [ $# -gt 0 ]; do
     --gas-fee)    GAS_FEE="$2"; shift 2 ;;
     --deposit)    DEPOSIT="$2"; shift 2 ;;
     --simulate)   MODE="simulate"; shift ;;
+    --password-stdin) PW_STDIN=1; shift ;;
     --broadcast)  MODE="broadcast"; shift ;;
     -h|--help)    sed -n '2,30p' "$0"; exit 0 ;;
     *) echo "deploy-guilds: unknown argument $1" >&2; exit 2 ;;
@@ -134,6 +147,10 @@ case "$MODE" in
     else
       set -- "$@" --broadcast
     fi
-    "$@" "$KEY"
+    if [ "$PW_STDIN" = 1 ]; then
+      "$@" --insecure-password-stdin "$KEY"
+    else
+      "$@" "$KEY"
+    fi
     ;;
 esac
