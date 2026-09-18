@@ -40,9 +40,9 @@ arithmetic, and §4 states exactly how much.
 A buyer states a **floor**: `Buy(court, minUnits)` refuses, before any state
 moves, an offering that would mint fewer units than `minUnits` at the position
 the transaction actually lands on (0 is no floor). That is the buyer's only
-defence against being ordered behind another buy (§6 A15), and the page is to
-pass the units it quoted — it does not yet (§11, cryptocourt: the overlay still
-calls `Buy` with the slug alone, which kourtv3 refuses on argument count).
+defence against being ordered behind another buy (§6 A15), and the page passes
+the units it quoted less a 0.5 % tolerance, or 0 when it has no quote
+(cryptocourt's `twoway-overlay` branch; §11).
 
 A court may instead be founded **one-way** (`StartOneWayCourt`): every payment
 burns in full and `Redeem` refuses it forever. The meta court is founded one-way
@@ -525,11 +525,11 @@ that file mirrors mainnet.
 cryptocourt: PLAN.md's decision rows, DEPLOY-MAINNET.md (its "zero courts at
 deploy", "no admin until step 2" and "seal the clock" are wrong),
 GUILD.md/deploy README/web README paths, and the overlay comments that quote
-devnet figures as live. web/index.html's coin panel still calls `Buy` with
-`{slug}` alone (`3fc5e04`): against kourtv3 every site Buy fails on argument
-count until the page passes `minUnits: q.units` when it has a quote and 0 when
-it has none, and `cliCmd`'s Buy arm prints the third `-args` — the deploy
-blocker the audit named, and the reason §1 says the page "is to" pass the
-figure. scripts/retarget.sh is likewise still hardwired to kourtv2 (`REALM_SRC`,
-the sed pattern, the `package` line); §10 step 3 presupposes the `--src`
-parametrisation.
+devnet figures as live. Both overlay-side gaps the audit named are closed on
+cryptocourt's `twoway-overlay` branch: web/index.html's coin panel passes
+`minUnits` (the quoted units less a 0.5 % tolerance, 0 with no quote) and
+`cliCmd`'s Buy arm prints the third `-args`; scripts/retarget.sh takes
+`--src <realm>`, rewrites that realm's path and package line, and refuses a
+build with any `gno.land/[pr]/kourt/` literal left in it — the invocation §10
+step 3 names. The `realm` submodule there is pinned to the commit that
+introduced the third argument, so a retarget build and the page agree.
