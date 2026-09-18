@@ -11260,6 +11260,7 @@
   "file": "redeem.gno",
   "label": "Redeem: attached GNOT is silently kept",
   "find": "\tif unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
-  "replace": "\tif false {"
+  "replace": "\tif false && unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
+  "why": "`if false {` alone does not build: this is redeem.gno's only use of unsafe, so the import goes unused. The `false &&` form keeps the import and still never refuses."
  }
 ]
