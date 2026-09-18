@@ -199,10 +199,12 @@ func renderAdminParams() string {
 	   BELOW THE TABLE, NOT IN IT. Neither figure is a parameter and nobody can
 	   set them; putting them in a table of settings, under a "Set with" column,
 	   would misrepresent what they are. */
-	b.WriteString("\nBurned to date, across every court and every creation: **" +
+	b.WriteString("\nBurned to date — the sink's balance, which is every burn share, " +
+		"every creation burn, and anything else ever sent there: **" +
 		ugnotAmt(BurnedGNOT()) + " GNOT**, held at `" + BurnSink().String() +
-		"` — an address derived from a sub-realm identity that is never created, " +
-		"so no key to it exists and nothing can ever be spent from it. " +
+		"` — an address derived from a package path that the path grammar can " +
+		"never assign to a deployed realm, so no key to it exists and nothing " +
+		"can ever be spent from it. " +
 		"Held for coin, across every court: **" + ugnotAmt(TotalReserveGNOT()) +
 		" GNOT**, at this realm's own address — which no instruction but a " +
 		"holder returning coin for its pro-rata share can move.\n")

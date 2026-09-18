@@ -3,6 +3,7 @@ package kourtv3
 import (
 	"chain"
 	"chain/banker"
+	"strconv"
 	"testing"
 
 	testutils "gno.land/p/nt/testutils/v0"
@@ -27,7 +28,7 @@ func fundAndBuy(cur realm, slug string, who address, gnot int64) {
 	testing.IssueCoins(chain.PackageAddress(realmPath), chain.Coins{{Denom: "ugnot", Amount: gnot}})
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: gnot}})
 	testing.SetRealm(testing.NewUserRealm(who))
-	Buy(cross(cur), slug)
+	Buy(cross(cur), slug, 0) // no floor: the fixture wants whatever the curve gives
 	testing.SetOriginSend(nil)
 }
 
@@ -83,7 +84,7 @@ func TestBuyGuards(cur realm, t *testing.T) {
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testing.SetOriginSend(nil)
 	uassert.AbortsContains(t, cur, "send GNOT", func() {
-		Buy(cross(cur), "buy2")
+		Buy(cross(cur), "buy2", 0)
 	})
 }
 
@@ -136,7 +137,7 @@ func TestBuyRefusesNonUserCallsSelfBuysAndDustPayments(cur realm, t *testing.T) 
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: 300_000_000}})
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/kourt/notacourt"))
 	uassert.AbortsContains(t, cur, "must be a direct user call", func() {
-		Buy(cross(cur), "byg2")
+		Buy(cross(cur), "byg2", 0)
 	})
 	testing.SetOriginSend(nil)
 
@@ -144,7 +145,7 @@ func TestBuyRefusesNonUserCallsSelfBuysAndDustPayments(cur realm, t *testing.T) 
 	// the caller kind and not the payment.
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: 300_000_000}})
-	if got := Buy(cross(cur), "byg2"); got <= 0 {
+	if got := Buy(cross(cur), "byg2", 0); got <= 0 {
 		t.Fatalf("a direct user call with the same payment must mint: %d", got)
 	}
 	testing.SetOriginSend(nil)
@@ -201,7 +202,7 @@ func TestBuyReturnsTheUnspendableRemainder(cur realm, t *testing.T) {
 	testing.IssueCoins(chain.PackageAddress(realmPath), chain.Coins{{Denom: "ugnot", Amount: pay}})
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: pay}})
 	testing.SetRealm(testing.NewUserRealm(alice))
-	got := Buy(cross(cur), "buy3")
+	got := Buy(cross(cur), "buy3", 0)
 	testing.SetOriginSend(nil)
 
 	if got != units {
@@ -232,3 +233,154 @@ func TestBuyReturnsTheUnspendableRemainder(cur realm, t *testing.T) {
 	}
 }
 
+
+// THE FLOOR. minUnits is the fewest base units a buyer will take for the GNOT
+// attached; the realm compares it with what the curve would mint at the
+// position the transaction actually lands on, and refuses BEFORE anything
+// moves. Three arms: a floor the offering meets (mints exactly the quote), a
+// floor it misses (aborts, names both figures, and leaves every counter where
+// it was), and 0 (no floor at all).
+//
+// "REFUNDS" IS THE ABSENCE OF EVERY WRITE. On a real node an aborted
+// transaction returns its envelope whatever the realm did before the panic; in
+// this harness revive() does NOT roll state back (gno v1.2.0's uverse says so:
+// "residual state mutations remain even after revive()"), which is exactly
+// what lets the ordering be pinned here — a floor checked AFTER the mint would
+// leave minted coin and a moved position behind the refusal, and the
+// assertions below would see them. That is the mutant this test exists to
+// catch, beside the one that drops the comparison.
+func TestBuyMinUnitsRefusesAndRefunds(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("buy-floor")
+	testing.SetRealm(testing.NewUserRealm(alice))
+	StartCourt(cross(cur), "buy5", "Floor Court")
+	c := mustCourt("buy5")
+
+	// ARM 1 — a floor the offering exactly meets. The quote is the curve's own
+	// answer at the current position, which is what a page shows the buyer.
+	const pay = int64(100_000_000)
+	quote, _ := c.crv.Minted(c.minted, pay)
+	if quote != 447_213_595 { // sqrt(2·D·100 GNOT) on a fresh curve
+		t.Fatalf("fixture: the quote on a fresh curve is deterministic: %d", quote)
+	}
+	testing.IssueCoins(chain.PackageAddress(realmPath), chain.Coins{{Denom: "ugnot", Amount: pay}})
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: pay}})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	if got := Buy(cross(cur), "buy5", quote); got != quote {
+		t.Fatalf("a floor the offering meets mints exactly the quote: %d vs %d", got, quote)
+	}
+	testing.SetOriginSend(nil)
+
+	// ARM 2 — a floor one unit above what this position mints. Nothing may move.
+	quote2, _ := c.crv.Minted(c.minted, pay)
+	if quote2 >= quote {
+		t.Fatal("fixture: the second 100 GNOT must mint less than the first, or the curve is flat")
+	}
+	position, supply := CurvePosition("buy5"), c.coin.TotalSupply()
+	balance, reserve := CoinBalanceOf("buy5", alice), ReserveGNOT("buy5")
+	sink, kept := BurnedGNOT(), ugnotOf(chain.PackageAddress(realmPath))
+	paidIn, total := c.paidIn, TotalReserveGNOT()
+	// No IssueCoins: a correct realm sends nothing on this path, so the fixture
+	// funds nothing. If a mutant reached a SendCoins it would abort on the bank
+	// instead of on the floor, and the message assertion below would see it.
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: pay}})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur,
+		"kourtv3: this offering would mint fewer units than your floor — "+
+			strconv.FormatInt(quote2, 10)+" < "+strconv.FormatInt(quote2+1, 10),
+		func() {
+			Buy(cross(cur), "buy5", quote2+1)
+		})
+	testing.SetOriginSend(nil)
+	if CurvePosition("buy5") != position || c.coin.TotalSupply() != supply {
+		t.Fatalf("a refused buy must not move the curve or mint: position %d→%d, supply %d→%d",
+			position, CurvePosition("buy5"), supply, c.coin.TotalSupply())
+	}
+	if CoinBalanceOf("buy5", alice) != balance {
+		t.Fatal("a refused buy must mint nothing to the buyer")
+	}
+	if ReserveGNOT("buy5") != reserve || TotalReserveGNOT() != total || c.paidIn != paidIn {
+		t.Fatal("a refused buy must credit no reserve and record no payment")
+	}
+	if BurnedGNOT() != sink || ugnotOf(chain.PackageAddress(realmPath)) != kept {
+		t.Fatal("a refused buy must move no GNOT: the sink and the realm's balance stay put")
+	}
+
+	// ARM 3 — 0 is no floor: the same payment now mints whatever the curve gives.
+	testing.IssueCoins(chain.PackageAddress(realmPath), chain.Coins{{Denom: "ugnot", Amount: pay}})
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: pay}})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	if got := Buy(cross(cur), "buy5", 0); got != quote2 {
+		t.Fatalf("0 is no floor: %d, want the curve's %d", got, quote2)
+	}
+	testing.SetOriginSend(nil)
+	if CoinBalanceOf("buy5", alice) != quote+quote2 {
+		t.Fatal("both accepted buys, and only those, are on the ledger")
+	}
+}
+
+// THE ATTACK THE FLOOR IS FOR (TWOWAY.md §6 A15). A court has taken 50 GNOT. A
+// victim is quoted the units 500 GNOT mints and signs. An attacker who can
+// order the block lands 50 GNOT ahead of them: the victim's buy now starts
+// higher up the curve and mints fewer units, the attacker redeems into the
+// reserve the victim just filled, and walks away with more GNOT than they put
+// in — the §4 early-position windfall with the victim as the "later buyer".
+//
+// With minUnits set at the quote the victim is REFUSED rather than shorted, and
+// keeps their GNOT. With 0 they are shorted, and the numbers are the audit's:
+// 732,581,082 quoted, 648,231,519 received (−11.5%); the attacker's 50
+// GNOT comes back as about 64.57 GNOT. Both outcomes are asserted, because a floor that
+// refused everything would pass the first half alone.
+func TestAnInterleavedBuyIsBoundedByTheFloor(cur realm, t *testing.T) {
+	founder := testutils.TestAddress("buy-sw-founder")
+	victim := testutils.TestAddress("buy-sw-victim")
+	attacker := testutils.TestAddress("buy-sw-attacker")
+	fundAndBuy(cur, "buy6", founder, 50_000_000) // 50 GNOT paid in: a young court
+	c := mustCourt("buy6")
+
+	// The quote the victim sees, at the position before anyone interleaves.
+	const victimPays = int64(500_000_000)
+	quoted, _ := c.crv.Minted(c.minted, victimPays)
+	if quoted != 732_581_082 {
+		t.Fatalf("fixture: 500 GNOT at 50 GNOT paid in quotes a fixed figure on a fresh curve: %d", quoted)
+	}
+
+	// The attacker lands first.
+	fundAndBuy(cur, "buy6", attacker, 50_000_000)
+	attackerUnits := CoinBalanceOf("buy6", attacker)
+
+	// The victim's buy with the quote as its floor: refused, and their GNOT
+	// never moved. Both figures are named.
+	shorted, _ := c.crv.Minted(c.minted, victimPays)
+	if shorted >= quoted || shorted < 648_000_000 || shorted > 649_000_000 {
+		t.Fatalf("fixture: the interleaved buy must short the victim by about 11.5%%: %d vs quoted %d", shorted, quoted)
+	}
+	position, supply := CurvePosition("buy6"), c.coin.TotalSupply()
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: victimPays}})
+	testing.SetRealm(testing.NewUserRealm(victim))
+	uassert.AbortsContains(t, cur,
+		"kourtv3: this offering would mint fewer units than your floor — "+
+			strconv.FormatInt(shorted, 10)+" < "+strconv.FormatInt(quoted, 10),
+		func() {
+			Buy(cross(cur), "buy6", quoted)
+		})
+	testing.SetOriginSend(nil)
+	if CoinBalanceOf("buy6", victim) != 0 || CurvePosition("buy6") != position || c.coin.TotalSupply() != supply {
+		t.Fatal("the refused victim holds nothing and the court is untouched")
+	}
+
+	// With no floor the same buy goes through — and the victim is shorted by
+	// exactly the audit's figure, which the attacker then cashes.
+	fundAndBuy(cur, "buy6", victim, victimPays)
+	if got := CoinBalanceOf("buy6", victim); got != shorted {
+		t.Fatalf("with no floor the victim receives the shorted figure: %d, want %d", got, shorted)
+	}
+	held := ugnotOf(attacker)
+	testing.SetRealm(testing.NewUserRealm(attacker))
+	back := Redeem(cross(cur), "buy6", attackerUnits)
+	if back < 64_500_000 || back > 64_600_000 {
+		t.Fatalf("the attacker's lap returns about 64.57 GNOT on 50 paid: %d", back)
+	}
+	if back <= 50_000_000 || ugnotOf(attacker)-held != back {
+		t.Fatalf("the attacker profits, funded by the victim's shortfall: paid 50 GNOT, back %d", back)
+	}
+}

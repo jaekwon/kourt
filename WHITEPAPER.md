@@ -320,9 +320,10 @@ managed by anyone. Two facts clarify the design:
 - **Returning coin pays a share, not a price.** `Redeem` (`redeem.gno`) burns
   the coin returned and pays the court's pro-rata share of what it holds: the
   held GNOT times the coin returned over the coin's total supply, rounded
-  down. That figure is never above the curve's price for the next coin: less
-  than half its price right after an offering, and less as emission mints coin
-  against nothing. The curve's position never walks back, so no stretch of it
+  down. That figure is below the curve's price for the next coin — unless coin
+  has been destroyed by forfeited bonds since the last offering, which raises
+  every remaining coin's share (TWOWAY.md §6 A7) — less than half its price
+  right after an offering, and less as emission mints coin against nothing. The curve's position never walks back, so no stretch of it
   is sold twice. Coin committed to a stake or an open vote cannot be returned
   any more than it can be transferred (`mustSpendable`), and nothing is charged
   on the way out. What a purchase buys is a durable voice in one court's
@@ -449,9 +450,9 @@ The limits below are design constraints, not disclaimers.
 **The coins are not investments, and this document is not an offer of one.**
 [counsel: re-opine — see TWOWAY.md §8] There is no discretionary treasury, no
 dividend, and no buyback: returning coin is paid a pro-rata share of what the
-court holds, never a price, and never more than the curve charges for the next
-coin. No person administers that share; the code pays it and nothing else can
-move it. GNOT spent on a curve should be treated as spent: the destroyed share
+court holds, never a price, and not more than the curve charges for the next
+coin while no coin has been destroyed by bonds since the last offering. No
+person administers that share; the code pays it and nothing else can move it. GNOT spent on a curve should be treated as spent: the destroyed share
 is gone, and the held share comes back at less than half its price right after
 an offering, and less as emission mints. The coin is a participation
 instrument: voice in

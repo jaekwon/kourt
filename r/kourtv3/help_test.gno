@@ -719,3 +719,42 @@ func TestTheClaimPageShowsTheSpamCutAndNamesADiscard(cur realm, t *testing.T) {
 		t.Fatalf("the status must say who is paid and what burns, got %q", st)
 	}
 }
+
+// THE PRICE ON THE COURT PAGE IS A WHOLE COIN'S, IN THE SAME UNIT AS THE RETURN
+// BESIDE IT (M3 of the two-way audit). The page used to print curve.Price —
+// floor(s/D), a per-BASE-UNIT figure that reads 0 on every court below D, which
+// is every court under about 500 GNOT paid in — next to a per-whole-coin return
+// and the words "always below the price". True, and it looked false. This
+// court sits below D on purpose: the old line would print "price: 0".
+func TestTheCourtPagePricesAWholeCoinBesideItsReturn(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("hp4-alice")
+	fundAndBuy(cur, "hp4", alice, 50_000_000)
+	c := mustCourt("hp4")
+	if c.crv.Price(c.minted) != 0 {
+		t.Fatalf("fixture: this court must sit below D, where the per-unit price floors to 0: %d", c.crv.Price(c.minted))
+	}
+	next, ok := c.crv.Cost(c.minted, coinUnit)
+	perCoin := RedeemValue("hp4", coinUnit)
+	if !ok || next <= 0 || perCoin <= 0 || perCoin > next {
+		t.Fatalf("fixture: the return must be positive and at most the next coin's cost: %d vs %d", perCoin, next)
+	}
+	page := Render("hp4")
+	if !strings.Contains(page, "price: "+strconv.FormatInt(next, 10)+" ugnot per coin") {
+		t.Fatalf("the page must price the next WHOLE coin (%d ugnot), not a floored base unit", next)
+	}
+	if strings.Contains(page, "price: 0 ugnot") {
+		t.Fatal("the page printed a floored per-unit price beside a per-coin return")
+	}
+	if !strings.Contains(page, "one coin returns "+strconv.FormatInt(perCoin, 10)+" ugnot") {
+		t.Fatalf("the page must print the per-coin return (%d ugnot) beside the price", perCoin)
+	}
+	// AND THE BOUND IS STATED WITH ITS CONDITION. Bond burns can lift the return
+	// past the price (TWOWAY.md §6 A7); an unconditional "always" is not a
+	// promise the arithmetic makes.
+	if !strings.Contains(page, "below the next coin's price unless coin has been destroyed by bonds") {
+		t.Fatal("the bound must carry its condition")
+	}
+	if strings.Contains(page, "always below") {
+		t.Fatal("the page must not promise the bound unconditionally")
+	}
+}

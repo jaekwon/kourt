@@ -150,15 +150,18 @@ the rest is held per court as `reserve`. `Redeem` (`redeem.gno`) pays a holder
 `floor(reserve × amount / TotalSupply)` for uncommitted coin, and it goes
 through `mustSpendable` like every other outflow, so vote-locked coin cannot be
 redeemed any more than it can be transferred
-(`TestVotedCoinCannotBeRedeemedUntilTheRoundResolves`). That return is never
-above the curve's price for the next coin, is at most about half of it right
+(`TestVotedCoinCannotBeRedeemedUntilTheRoundResolves`). That return is below
+the curve's price for the next coin unless coin has been destroyed by bonds
+since the last offering (TWOWAY.md §6 A7), is at most about half of it right
 after an offering, and falls as emission mints. So the exit is a **protocol bid
 at the pro-rata return**, and the rental is priced two ways:
 
 - **Curve route** — buy on the curve, vote, `Redeem`. A round trip costs the
-  curve/return spread: 54–75% of outlay (TWOWAY.md §6 A1, from the §4 grid).
-  Still the expensive door, and the one every %-of-supply bar was calibrated
-  against.
+  curve/return spread: 54–75% of outlay for a buyer small against the court
+  (TWOWAY.md §6 A1, from the §4 grid); a buyer who dwarfs the court loses less
+  — §4's general formula, 40% at Δ = S, 17.5% at Δ = 10S, tending to φ — and
+  TWOWAY.md §6 A16 prices that door against the `PastTotal`-based bars. Still
+  the expensive door, and the one every %-of-supply bar was calibrated against.
 - **OTC route** — buy near the return value on gnoswap, unwrap, wait an epoch,
   vote, hold through resolution, `Redeem`. Costs the premium over the floor plus
   `(25 + ≤38 bps)·T` of carry — `r0WeeklyBps` plus the `d_eff` cap, per week

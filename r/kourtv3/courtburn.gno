@@ -113,13 +113,30 @@ func takeCourtCreationBurn(cur realm) {
 		panic(errStaleRealm)
 	}
 	price := courtCreationBurn
+	prev := cur.Previous()
 	if price <= 0 {
-		// OFF. Nothing is read, nothing is required, and in particular no
-		// IsUserCall check happens — that is what keeps StartCourt callable by
-		// another realm while the burn is unpriced.
+		// OFF. Nothing is required, and in particular IsUserCall is not
+		// DEMANDED — that is what keeps StartCourt callable by another realm
+		// while the burn is unpriced.
+		//
+		// BUT GNOT ATTACHED TO A FREE CREATION IS REFUSED, and only from a user
+		// call. The vm keeper moves a MsgCall's envelope to the realm's address
+		// before a line of this runs, so a payment nobody reads is not returned:
+		// it sits at the realm, outside every court's reserve and outside the
+		// sink, with no counter, no event and no sweep — bank(realm) exceeds the
+		// reserves by that much for ever (TWOWAY.md §6 A6). That is exactly the
+		// state a page produces when it was rendered while creation was priced
+		// and the admin set the price to zero before the transaction landed, or
+		// when a stale pasted command still carries its -send. Redeem refuses
+		// the identical situation; so does this. Aborting returns the envelope
+		// with the transaction. A realm caller is left alone: it cannot have an
+		// envelope of its own, and reading OriginSend under a realm call would
+		// attribute some outer transaction's payment to it.
+		if prev.IsUserCall() && unsafe.OriginSend().AmountOf(gnotDenom) > 0 {
+			panic("kourtv3: court creation is free right now; send no GNOT")
+		}
 		return
 	}
-	prev := cur.Previous()
 	if !prev.IsUserCall() {
 		panic("kourtv3: starting a court burns GNOT, so it must be a direct user call")
 	}

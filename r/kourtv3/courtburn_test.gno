@@ -75,6 +75,43 @@ func TestCourtCreationBurnShipsOff(cur realm, t *testing.T) {
 	if !Exists("ccb2") {
 		t.Fatal("an unpriced court must be openable by another realm")
 	}
+
+	// BUT A USER WHO ATTACHES GNOT TO A FREE CREATION IS REFUSED (M6 of the
+	// two-way audit). The keeper deposits the envelope at the realm before the
+	// call runs; with the burn off nothing read it, so the coins sat at the
+	// realm outside every reserve and outside the sink, uncounted for ever. The
+	// refusal aborts before the court exists, so the transaction returns the
+	// envelope. Both public entrypoints, since each has its own body.
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: 1}})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "kourtv3: court creation is free right now; send no GNOT", func() {
+		StartCourt(cross(cur), "ccb1p", "Paid For Nothing")
+	})
+	testing.SetOriginSend(nil)
+	if Exists("ccb1p") {
+		t.Fatal("a refused creation must not leave a court behind")
+	}
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: 1}})
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "kourtv3: court creation is free right now; send no GNOT", func() {
+		StartCourtP(cross(cur), "ccb1q", "Paid For Nothing", 10)
+	})
+	testing.SetOriginSend(nil)
+	if Exists("ccb1q") {
+		t.Fatal("a refused StartCourtP must not leave a court behind")
+	}
+	// THE REALM ARM IS UNTOUCHED BY THE ENVELOPE. A code realm cannot carry a
+	// payment of its own; the envelope it sees is some outer transaction's, and
+	// refusing it here would attribute that payment to the wrong call. So the
+	// gate is user-only, and this is what pins that: the same declared
+	// envelope, a realm caller, and the court opens.
+	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: 1}})
+	testing.SetRealm(testing.NewCodeRealm("gno.land/r/kourt/notacourt"))
+	StartCourt(cross(cur), "ccb2p", "Realm Court With An Envelope")
+	testing.SetOriginSend(nil)
+	if !Exists("ccb2p") {
+		t.Fatal("the free-creation refusal is for user calls only; a realm caller must still open a court")
+	}
 }
 
 func TestSetCourtCreationBurnIsAdminOnly(cur realm, t *testing.T) {

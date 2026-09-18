@@ -36,7 +36,7 @@ stdout '\(0 uint64\)'
 # privileged act. Anybody who can send GNOT can do it, and on a public chain
 # anybody watching the deploy can do it in the next block. That is why arming
 # has to check, and why the check is not merely tidiness.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -send 20000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test buyer
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -args 0 -send 20000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test buyer
 stdout 'OK!'
 
 # Coin exists. No claim was opened, so the claims arm is NOT what refuses below —

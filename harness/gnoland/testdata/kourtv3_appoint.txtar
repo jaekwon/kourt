@@ -28,7 +28,7 @@ loadpkg gno.land/r/kourt/kourtv3
 gnoland start
 
 env TEST1=g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5
-env KOURTV2=g1dkw78ltwhvdl0shgmu9ksw3npuf4ua546mep33
+env COURTV3=g1dkw78ltwhvdl0shgmu9ksw3npuf4ua546mep33
 
 # --- A court, whose creator holds the appointment power --------------------------
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args bedford -args 'Bedford Truth Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
@@ -44,7 +44,7 @@ stdout '\(1 int\)'
 # --- THE FIX: a two-member 2-of-2 set installed by a real transaction ------------
 # Two repeated -args for the variadic, m ahead of them. This single line is the
 # whole finding: before the signature change it was impossible.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AppointMods -args bedford -args 2 -args ${TEST1} -args ${KOURTV2} -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AppointMods -args bedford -args 2 -args ${TEST1} -args ${COURTV3} -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 # The state a query serves, not just the tx receipt: n and m both moved, and both
@@ -53,7 +53,7 @@ gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ModThreshold(\"bedford\")
 stdout '\(2 int\)'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.IsCourtMod(\"bedford\", \"${TEST1}\")"
 stdout 'true'
-gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.IsCourtMod(\"bedford\", \"${KOURTV2}\")"
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.IsCourtMod(\"bedford\", \"${COURTV3}\")"
 stdout 'true'
 
 # --- A single-member call, because one element is the variadic's edge ------------
@@ -61,11 +61,11 @@ gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AppointMods -args bed
 stdout 'OK!'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ModThreshold(\"bedford\")"
 stdout '\(1 int\)'
-gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.IsCourtMod(\"bedford\", \"${KOURTV2}\")"
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.IsCourtMod(\"bedford\", \"${COURTV3}\")"
 stdout 'false'
 
 # --- The candidate registry, the other half the election depends on -------------
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func RegisterModCandidate -args bedford -args 2 -args ${TEST1} -args ${KOURTV2} -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func RegisterModCandidate -args bedford -args 2 -args ${TEST1} -args ${COURTV3} -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CandidateMembers(\"bedford\", 1)"
 stdout ${TEST1}

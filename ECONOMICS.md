@@ -138,10 +138,15 @@ the current price returns if redeemed at once:
 | 0.78 | 0.253 | 0.506 |
 
 So a buy followed at once by a redeem loses at least 55% of outlay at k = 0
-and about 75% by k = 0.78. The return is at most the marginal price under any
-interleaving of buys, redemptions and emission (TWOWAY.md §4 proof (c)); the
-"at most half" form holds while `N ≥ S`, which heavy redemption can break —
-the marginal bound is the one that prevents arbitrage.
+and about 75% by k = 0.78 — for a buyer small against the court. A buyer who
+dwarfs it loses less: the exact recovery of Δ coin into position S is
+`(1−φ)(S+Δ)²/((2S+Δ)(S(1+k)+Δ))`, 60% at Δ = S, 82.5% at Δ = 10S, tending to
+1−φ (TWOWAY.md §4, §6 A16). The return is at most the marginal price under any
+interleaving of buys, redemptions and emission (TWOWAY.md §4 proof (c)); a
+coin burn is the exception — a forfeited bond shrinks supply with the reserve
+fixed, and cumulative burns past ~55% of supply lift the return over the price
+(TWOWAY.md §6 A7); the "at most half" form holds while `N ≥ S`, which heavy
+redemption can break — the marginal bound is the one that prevents arbitrage.
 
 **Break-even position.** A buyer at position fraction `x` who paid the
 marginal price there and returns coin once the court has filled to `S`
@@ -153,8 +158,9 @@ x* = (1−φ)/(2(1+k))      = 0.45 at k = 0,  0.253 at k = 0.78
 
 Below `x*` an early position recovers above cost — funded by later buyers,
 never by other holders, since a redemption never lowers what stayers are owed
-per coin (TWOWAY.md I5). A founder at x = 0.1 recovers 4.5× at k = 0, 2.5× at
-k = 0.78. **Accepted and disclosed**, not closed by mechanism (a per-position
+per coin (TWOWAY.md I5). A marginal buyer at x = 0.1 recovers 4.5× at k = 0,
+2.5× at k = 0.78; the actor who bought the whole first 10% recovers 9× / 5.1×
+(TWOWAY.md §6 A2, with the arithmetic). **Accepted and disclosed**, not closed by mechanism (a per-position
 cost basis would strand emission-earned and transferred coin); the whitepaper
 carries it qualitatively and counsel weighs it (TWOWAY.md §8).
 

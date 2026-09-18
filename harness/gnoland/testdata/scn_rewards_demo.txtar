@@ -29,10 +29,10 @@ stdout 'OK!'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args 'bedford' -args 'Bedford Truth Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
 stdout 'OK!'
 
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func OpenClaim -args 'bedford' -args 'The county certified 12,412 mail ballots on Nov 6, 2025.' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice

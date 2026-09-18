@@ -17,11 +17,17 @@ package kourtv3
 // bits. Three facts about that number, each proved in TWOWAY.md and each held by
 // a test here:
 //
-//   - it is at most the marginal price, always, under any interleaving of buys,
+//   - it is at most the marginal price under any interleaving of buys,
 //     redemptions and emission — so a buy followed at once by a redeem never
 //     profits (the curve prices the next coin off total-ever-minted and never
 //     walks back; the reserve holds the AVERAGE of past payments, less the burn
-//     share, diluted by every coin emission minted against nothing);
+//     share, diluted by every coin emission minted against nothing). The one
+//     operation that does NOT preserve it is a coin burn — a forfeited bond or
+//     deposit shrinks TotalSupply with the reserve fixed, so the per-coin
+//     return rises — and enough burns since the last offering can lift it past
+//     the price. Bounded, not closed: TWOWAY.md §6 A7 prices it (the burned
+//     fraction of supply must pass ~0.55 at k = 0), and every sentence a page
+//     prints about the bound carries that condition;
 //   - it never lowers what the remaining holders are owed per coin: floor
 //     rounding leaves the dust in the reserve, so a redemption is neutral to
 //     everyone else and only emission moves the per-coin figure, downward, by
@@ -186,10 +192,23 @@ func mustReturnAMicroGNOT(c *Court, payout, supply int64) {
 // court's reserve pro-rata: floor(reserve × amount / supply) µGNOT, from this
 // realm's own address. Returns the µGNOT paid.
 //
-// Realm-callable, like TransferCC: there is no inbound payment to protect, so
-// IsUserCall has nothing to do here. It TAKES no GNOT — coins attached to the
-// call would land at the realm address uncredited and be lost to the sender —
-// so an attached send is refused rather than silently kept.
+// Realm-callable: there is no inbound payment to protect, so IsUserCall has
+// nothing to do here. It TAKES no GNOT — coins attached to the call would land
+// at the realm address uncredited and be lost to the sender — so an attached
+// send is refused rather than silently kept.
+//
+// THE GUARD IS TRANSACTION-WIDE, and that is wider than the sentence above.
+// unsafe.OriginSend is the MsgCall's envelope, set once per message and shared
+// by every realm in the call chain; the keeper deposits it at the ENTRY realm.
+// So a realm that took a payment through its own entrypoint and then calls
+// Redeem in the same transaction is refused here although kourtv3 received
+// nothing — TransferCC, which this used to be described as "like", makes no
+// such check. Accepted, deliberately: the refusal costs an over-strict caller
+// one transaction and loses nobody a µGNOT, no realm in this repo calls Redeem,
+// and gating on IsUserCall instead would let a user's direct paid call through
+// only by weakening the one line that keeps GNOT out of a path that has no way
+// to credit it. A wrapper that wants to take a fee and redeem does it in two
+// transactions.
 //
 // Refusals, in order: stale frame; a non-positive amount; attached GNOT; no such
 // court; a one-way court; the court's own escrow as caller (it holds bonds and

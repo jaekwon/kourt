@@ -10335,7 +10335,7 @@
   "pkg": "kourtv3",
   "file": "help.gno",
   "label": "v0.58 help: help drops what a payment becomes",
-  "find": "\tb.WriteString(\"- **Receiving a court's coin** takes GNOT on a rising curve. A \" +\n\t\t\"share of it (\" + pct(burnBps, bpsDenom) + \" today, set by the \" +\n\t\t\"platform's governing court within fixed bounds) is burned for good; the \" +\n\t\t\"rest is held by the court and paid back pro-rata to anyone who returns \" +\n\t\t\"coin — less than they put in, right after they put it in, and never more \" +\n\t\t\"than the next coin's price. A one-way court burns all of it. The price \" +\n\t\t\"only rises as more is minted.\\n\\n\")",
+  "find": "\tb.WriteString(\"- **Receiving a court's coin** takes GNOT on a rising curve. A \" +\n\t\t\"share of it (\" + pct(burnBps, bpsDenom) + \" today, set by the \" +\n\t\t\"platform's governing court within fixed bounds) is burned for good; the \" +\n\t\t\"rest is held by the court and paid back pro-rata to anyone who returns \" +\n\t\t\"coin — less than they put in, right after they put it in, and below \" +\n\t\t\"the next coin's price unless coin has been destroyed by bonds since the \" +\n\t\t\"last offering. A one-way court burns all of it. The price \" +\n\t\t\"only rises as more is minted.\\n\\n\")",
   "replace": ""
  },
  {
@@ -11262,5 +11262,54 @@
   "find": "\tif unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
   "replace": "\tif false && unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
   "why": "`if false {` alone does not build: this is redeem.gno's only use of unsafe, so the import goes unused. The `false &&` form keeps the import and still never refuses."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "buy.gno",
+  "label": "Buy: the buyer's floor on units is never compared",
+  "find": "\tif delta < minUnits {",
+  "replace": "\tif false {",
+  "why": "A15 (TWOWAY.md §6): with the comparison gone a sandwiched buyer receives fewer units than they were quoted and nothing refuses. Killed by TestBuyMinUnitsRefusesAndRefunds (floor missed → abort) and TestAnInterleavedBuyIsBoundedByTheFloor (the victim is refused, not shorted)."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "buy.gno",
+  "label": "Buy: the floor is checked AFTER the mint and the position move",
+  "find": "\tif delta < minUnits {\n\t\tpanic(\"kourtv3: this offering would mint fewer units than your floor — \" +\n\t\t\tstrconv.FormatInt(delta, 10) + \" < \" + strconv.FormatInt(minUnits, 10))\n\t}\n\tc.minted += delta // monotonic curve position\n\trecordPrice(c)     // the position moved, so the price may have ticked\n\tc.coin.Mint(buyer, delta)\n",
+  "replace": "\tc.minted += delta // monotonic curve position\n\trecordPrice(c)     // the position moved, so the price may have ticked\n\tc.coin.Mint(buyer, delta)\n\tif delta < minUnits {\n\t\tpanic(\"kourtv3: this offering would mint fewer units than your floor — \" +\n\t\t\tstrconv.FormatInt(delta, 10) + \" < \" + strconv.FormatInt(minUnits, 10))\n\t}\n",
+  "why": "On a real node an abort reverts the whole transaction, so this ordering is invisible there; in the gno test harness revive() leaves residual state (uverse.go says so), which is exactly what lets TestBuyMinUnitsRefusesAndRefunds see the minted coin and the moved position behind the refusal. The row pins the ordering the comment above the check promises: nothing moves before the floor is checked."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "courtburn.gno",
+  "label": "StartCourt: GNOT attached to a free creation is swallowed by the realm",
+  "find": "\t\tif prev.IsUserCall() && unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
+  "replace": "\t\tif false && prev.IsUserCall() && unsafe.OriginSend().AmountOf(gnotDenom) > 0 {",
+  "why": "M6 of the two-way audit: with the burn off nothing read the envelope, so a page rendered while creation was priced paid GNOT into the realm's balance outside every reserve and the sink, uncounted for ever. `false &&` keeps the unsafe import live. Killed by TestCourtCreationBurnShipsOff's SetOriginSend arms."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "splitPayment: the held share reads the launch CONSTANT, not the live burn share",
+  "find": "\treserved = mulDiv128(spent, bpsDenom-burnBps, bpsDenom)",
+  "replace": "\treserved = mulDiv128(spent, bpsDenom-burnBpsInit, bpsDenom)",
+  "why": "M7 of the two-way audit: every earlier buy was at 1000 bps, so a split that ignored SetBurnBps agreed with every test while the admin page printed a share no payment used — an inert governance knob and wrong money copy. Killed by TestTheBurnShareMovesEveryLaterPayment, which sets 500 and 5000 through the entrypoint and asserts the sink and reserve deltas to the µGNOT."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "SetBurnBps: the bounds call is dropped",
+  "find": "\tmustSaneBurnBps(bps)\n\told := burnBps\n",
+  "replace": "\told := burnBps\n",
+  "elsewhere": "harness/gnoland/testdata/kourtv3_money.txtar",
+  "why": "The admin could then set 0 or 10000 — one-way again by parameter, the outcome the bounds exist to prevent. The in-process harness cannot express an authorized call that must abort (the caller override does not reach a cross() inside revive(); redeem_test.gno and courtburn_test.gno both record the measurement), so TestSetBurnBpsIsAdminOnlyAndBounded reaches mustSaneBurnBps directly and cannot see the call go. kourtv3_money.txtar can: the deployer asks for 499 and 5001 on a real node and is refused with the knob unmoved."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "redeem.gno",
+  "label": "mustReturnAMicroGNOT: the hint drops its round-up",
+  "find": "\tleast := supply / c.reserve\n\tif supply%c.reserve != 0 {\n\t\tleast++\n\t}\n",
+  "replace": "\tleast := supply / c.reserve\n",
+  "why": "L16 of the two-way audit: the hint would name an amount that is refused again when followed (2 on the fixture court, where 3 is the least that pays a µGNOT). Every earlier assertion matched only the message's prefix. Killed by TestRedeemRefusesWhatItMust, which computes ceil(supply/reserve) by hand and asserts the full message, then redeems the hint and one below it."
  }
 ]

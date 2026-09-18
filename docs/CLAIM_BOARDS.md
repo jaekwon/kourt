@@ -1771,8 +1771,10 @@ Two more errors sat in the same paragraph:
   page nothing does.
 
 The page now states the order of operations before anything else — GNOT buys a
-court's coin, one way; that coin is what you stake — and separates the two
-things being right earns: more coin out of the reserve, and standing.
+court's coin (one way under V2; under V3, TWOWAY.md, a holder can also return
+coin for a pro-rata share of what the court holds); that coin is what you stake
+— and separates the two things being right earns: more coin out of the reserve,
+and standing.
 
 **How it happened, because the mechanism matters more than the instance.** The
 page was written from a mental model assembled by reading *render* code, and the

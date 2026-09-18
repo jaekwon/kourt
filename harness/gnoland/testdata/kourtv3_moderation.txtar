@@ -33,7 +33,7 @@ adduser stranger 100000000ugnot
 gnoland start
 
 env TEST1=g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5
-env KOURTV2=g1dkw78ltwhvdl0shgmu9ksw3npuf4ua546mep33
+env COURTV3=g1dkw78ltwhvdl0shgmu9ksw3npuf4ua546mep33
 
 # --- The review court's escrow really is this realm -----------------------------
 # meta is created at init, which has no `cur` to ask for the realm's own address,
@@ -44,7 +44,7 @@ env KOURTV2=g1dkw78ltwhvdl0shgmu9ksw3npuf4ua546mep33
 # nobody holds the key to, every appeal bond is paid into it, and a realm is
 # write-once so nothing repairs it afterwards.
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CourtEscrow(\"meta\")"
-stdout ${KOURTV2}
+stdout ${COURTV3}
 
 # --- A court, and two claims in it ---------------------------------------------
 # The creator bootstraps as the court's 1-of-1 moderator set, so test1 can
@@ -55,10 +55,10 @@ stdout 'OK!'
 # The other half of the comparison: an ordinary court's escrow comes from
 # cur.Address(), so meta's constant-derived one above must equal it.
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CourtEscrow(\"bedford\")"
-stdout ${KOURTV2}
+stdout ${COURTV3}
 
 # Claims cost a refundable CC deposit, so buy into the court's curve first.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -args 0 -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func OpenClaim -args bedford -args 'Is the sky blue?' -gas-fee 1000000ugnot -gas-wanted 100000000 -broadcast -chainid=tendermint_test test1

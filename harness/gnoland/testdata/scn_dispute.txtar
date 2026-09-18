@@ -32,19 +32,19 @@ stdout 'OK!'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args 'bedford' -args 'Bedford Truth Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test carol
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 400000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
 stdout 'OK!'
 
 
@@ -108,14 +108,14 @@ stdout 'false'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '120960' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test dave
 stdout 'OK!'
 
 # half a period for the budget to accrue against
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func AdvanceTestHeight -args '60000' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test erin
 stdout 'OK!'
 
 gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.TestHeightPeakSkew()"'

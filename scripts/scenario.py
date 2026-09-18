@@ -316,7 +316,10 @@ class Scenario:
         return slug
 
     def buy(self, who, slug, ugnot):
-        self._call(who, "Buy", [slug], send=f"{ugnot}ugnot")
+        # The third argument is the buyer's floor on units minted (kourtv3 Buy,
+        # TWOWAY.md §6 A15). A seed has no quote to defend and nobody to be
+        # sandwiched by on a chain it drives alone, so it passes 0: no floor.
+        self._call(who, "Buy", [slug, "0"], send=f"{ugnot}ugnot")
 
     def claim(self, who, slug, title, body=None, media=None):
         """OpenClaim, OpenClaimP with a body, or OpenClaimPM with evidence.

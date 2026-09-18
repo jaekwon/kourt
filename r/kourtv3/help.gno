@@ -145,8 +145,9 @@ func renderHelp() string {
 		"share of it (" + pct(burnBps, bpsDenom) + " today, set by the " +
 		"platform's governing court within fixed bounds) is burned for good; the " +
 		"rest is held by the court and paid back pro-rata to anyone who returns " +
-		"coin — less than they put in, right after they put it in, and never more " +
-		"than the next coin's price. A one-way court burns all of it. The price " +
+		"coin — less than they put in, right after they put it in, and below " +
+		"the next coin's price unless coin has been destroyed by bonds since the " +
+		"last offering. A one-way court burns all of it. The price " +
 		"only rises as more is minted.\n\n")
 
 	b.WriteString("## Who is in charge\n\n")

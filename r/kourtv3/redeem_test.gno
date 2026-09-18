@@ -3,6 +3,7 @@ package kourtv3
 import (
 	"chain"
 	"math/bits"
+	"strconv"
 	"testing"
 
 	testutils "gno.land/p/nt/testutils/v0"
@@ -167,13 +168,39 @@ func TestRedeemRefusesWhatItMust(cur realm, t *testing.T) {
 		t.Fatalf("fixture: one unit must round to nothing here (reserve %d, supply %d)", c.reserve, c.coin.TotalSupply())
 	}
 	supplyBefore := c.coin.TotalSupply()
+	// THE HINT IS A NUMBER, AND IT IS ASSERTED. The smallest amount that returns
+	// a whole µGNOT is ceil(supply / reserve), computed here by hand: on this
+	// court (270 GNOT held, 774,596,669 units) it is 3. A hint of 2 (the
+	// round-up dropped) or 0 (the operands swapped) would be refused again when
+	// followed — and passed every test until the figure itself was pinned.
+	reserveNow := ReserveGNOT("rd3")
+	least := supplyBefore / reserveNow
+	if supplyBefore%reserveNow != 0 {
+		least++
+	}
+	if least != 3 {
+		t.Fatalf("fixture: the hand-computed hint on this court is 3, got %d", least)
+	}
 	testing.SetRealm(testing.NewUserRealm(alice))
-	uassert.AbortsContains(t, cur, "kourtv3: too small to return a µGNOT", func() {
-		Redeem(cross(cur), "rd3", 1)
-	})
+	uassert.AbortsContains(t, cur,
+		"kourtv3: too small to return a µGNOT — redeem at least "+ccAmt(least)+" CC", func() {
+			Redeem(cross(cur), "rd3", 1)
+		})
 	if c.coin.TotalSupply() != supplyBefore {
 		t.Fatal("a refused dust redeem must burn nothing")
 	}
+	// ONE BELOW THE HINT IS STILL DUST; THE HINT ITSELF PAYS. A hint that named
+	// an amount which was refused when followed would be worse than none.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "kourtv3: too small to return a µGNOT", func() {
+		Redeem(cross(cur), "rd3", least-1)
+	})
+	held := ugnotOf(alice)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	if paid := Redeem(cross(cur), "rd3", least); paid < 1 || paid != floorProRata(reserveNow, least, supplyBefore) || ugnotOf(alice)-held != paid {
+		t.Fatalf("the hinted amount must return at least one µGNOT, at the quote: %d", paid)
+	}
+	supplyBefore = c.coin.TotalSupply()
 	// RedeemValue never panics on junk: over-supply, zero, negative all read 0.
 	if RedeemValue("rd3", supplyBefore+1) != 0 || RedeemValue("rd3", 0) != 0 || RedeemValue("rd3", -5) != 0 {
 		t.Fatal("RedeemValue answers 0 for an unredeemable amount")
@@ -242,7 +269,18 @@ func TestAShellCourtLapAccruesOnlyWhatItBurns(cur realm, t *testing.T) {
 
 // A BUY THEN A REDEEM NEVER PROFITS, at any position: the next coin is priced off
 // total-ever-minted while the reserve holds the average of past payments less the
-// burn share. Proved in TWOWAY.md; held here at three positions of one court.
+// burn share. Proved in TWOWAY.md; held here at three positions of one court,
+// with no burn and no emission between the two legs — the regime proof (c)
+// covers. (A bond burn between them can break the bound; TWOWAY.md §6 A7 prices
+// that, and the reconcile test below pins the bound on every burn-free step.)
+//
+// THE COMPARISON IS WITH THE GNOT ACTUALLY SPENT, NOT THE ENVELOPE. fundAndBuy
+// issues `pay` to the realm and the buyer receives only the dust Buy could not
+// spend, so what alice is out is `pay − dust`, read off her own balance. Past
+// the curve's d the dust is real (TestBuyReturnsTheUnspendableRemainder), and
+// a round trip that returned exactly `spent` would clear `back < pay` while
+// having lost nothing. An earlier version of this test also carried a second
+// `if` whose conjunction could only fire when the first did — dead, and gone.
 func TestBuyThenRedeemNeverProfits(cur realm, t *testing.T) {
 	alice := testutils.TestAddress("rd-flip")
 	bob := testutils.TestAddress("rd-anchor")
@@ -251,17 +289,19 @@ func TestBuyThenRedeemNeverProfits(cur realm, t *testing.T) {
 		before := CoinBalanceOf("rd7", alice)
 		held := ugnotOf(alice)
 		fundAndBuy(cur, "rd7", alice, pay)
+		dust := ugnotOf(alice) - held // the only GNOT that came back from the buy
+		spent := pay - dust
+		if spent <= 0 || spent > pay {
+			t.Fatalf("fixture: the spend must be a positive part of the payment: %d of %d", spent, pay)
+		}
 		got := CoinBalanceOf("rd7", alice) - before
 		testing.SetRealm(testing.NewUserRealm(alice))
 		back := Redeem(cross(cur), "rd7", got)
-		// fundAndBuy issues `pay` to the realm and Buy refunds only the dust, so
-		// alice's balance moves by the payout less what she actually spent; the
-		// round trip must leave her with no more than she started with.
-		if ugnotOf(alice) > held+back && back >= pay {
-			t.Fatalf("a round trip at %d returned %d: more than was paid", pay, back)
+		if back >= spent {
+			t.Fatalf("a round trip must lose the burn share and the curve spread: spent %d, got back %d", spent, back)
 		}
-		if back >= pay {
-			t.Fatalf("a round trip must lose the burn share and the curve spread: paid %d, got back %d", pay, back)
+		if ugnotOf(alice)-held != dust+back {
+			t.Fatalf("every µGNOT alice holds after the lap is dust or payout: %d vs %d", ugnotOf(alice)-held, dust+back)
 		}
 	}
 }
@@ -291,6 +331,19 @@ func TestReservesReconcileWithTheBank(cur realm, t *testing.T) {
 			if CourtBurnedGNOT(s)+ReserveGNOT(s)+RedeemedGNOT(s) != c.paidIn {
 				t.Fatalf("%s: %s: burned + held + paid out must be every µGNOT paid in", step, s)
 			}
+			// THE MARGINAL BOUND, TWOWAY.md §4 proof (c): what one whole coin
+			// returns never exceeds what the next whole coin costs, on every
+			// interleaving of buys and redemptions. Cost, not CoinPrice — the
+			// latter is a floored per-base-unit figure and reads 0 below d. No
+			// coin is burned by a bond in this script, which is the regime the
+			// proof covers; §6 A7 is the exception and is priced there.
+			next, ok := c.crv.Cost(c.minted, coinUnit)
+			if !ok {
+				t.Fatalf("%s: %s: the curve must price the next coin", step, s)
+			}
+			if per := RedeemValue(s, coinUnit); per > next {
+				t.Fatalf("%s: %s: a coin returned %d but the next one costs %d — the marginal bound broke", step, s, per, next)
+			}
 		}
 	}
 	// Both courts exist before the first check reads them both.
@@ -308,6 +361,98 @@ func TestReservesReconcileWithTheBank(cur realm, t *testing.T) {
 		testing.SetRealm(testing.NewUserRealm(a))
 		Redeem(cross(cur), "rd8a", CoinBalanceOf("rd8a", a)/2)
 		check("redeem a")
+	}
+}
+
+// THE BOUND'S ONE EXCEPTION, MEASURED (TWOWAY.md §4 proof (c), §6 A7). Every
+// step the reconcile test above takes preserves R ≤ N·s/D, so a coin never
+// returns more than the next one costs there. A coin BURN is the step that does
+// not: a dispute fee, a forfeit, a pass, a deposit burn, the association and
+// election bonds, a comment pass — each destroys escrowed coin with the reserve
+// fixed, so every remaining coin's share rises by N/(N−X), and past a burned
+// fraction of 1 − (1−φ)/(2(1+k)) — 0.550 on a court with no emission — a coin
+// RETURNS MORE THAN THE NEXT ONE COSTS. The proof concedes it; the realm's pages
+// carry it as a condition; this is the test that shows the regime is real and
+// where it begins, with the design record's own worked example: a 300 GNOT
+// court (S = N = 774,596,669, R = 270,000,000, R/N = 0.45P), 60% of the supply
+// burned, then a 1 GNOT buy that mints 1,289,920 units and redeems for
+// 1,123,134 µGNOT — a profit of 123,134 µGNOT on a round trip, paid by the
+// holders whose coin the bonds destroyed, not by any later buyer.
+//
+// The coin reaches the escrow the way a bond does (an in-package transfer, the
+// same ledger move a stake makes) and leaves it the way dispute.gno's forfeit
+// burns it: `c.coin.Burn(c.escrow, …)`. Two burns, on purpose — one that keeps
+// the cumulative fraction under the threshold and must leave the bound standing,
+// so the test fails if the bound were simply false rather than conditional; one
+// that carries it past, where the bound must give. A test that only checked the
+// second half would pass against a realm whose bound never held at all.
+func TestABurnLiftsTheReturnPastTheNextCoinsPrice(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("rd-burn-alice")
+	sniper := testutils.TestAddress("rd-burn-sniper")
+	fundAndBuy(cur, "rd10", alice, 300_000_000)
+	c := mustCourt("rd10")
+	supply0 := c.coin.TotalSupply()
+	if supply0 != 774_596_669 || c.reserve != 270_000_000 {
+		t.Fatalf("fixture: 300 GNOT on a fresh curve is the worked example: S=%d R=%d", supply0, c.reserve)
+	}
+	next := func() int64 {
+		n, ok := c.crv.Cost(c.minted, coinUnit)
+		if !ok {
+			t.Fatalf("the curve must price the next coin")
+		}
+		return n
+	}
+	if per, n := RedeemValue("rd10", coinUnit), next(); per > n {
+		t.Fatalf("burn-free, a coin returns at most the next one's price: %d vs %d", per, n)
+	}
+
+	// Half the supply becomes a bond and burns: 0.50 < 0.550, so the bound must
+	// still stand, at a return that has risen toward the price without crossing.
+	burnEscrowed := func(amount int64) {
+		c.coin.Transfer(alice, c.escrow, amount) // the bond lands in escrow …
+		c.coin.Burn(c.escrow, amount)            // … and is forfeited, as dispute.gno burns it
+	}
+	half := supply0 / 2
+	burnEscrowed(half)
+	if c.coin.TotalSupply() != supply0-half || c.reserve != 270_000_000 || c.minted != supply0 {
+		t.Fatalf("a burn shrinks the supply and moves neither the reserve nor the curve position")
+	}
+	per, n := RedeemValue("rd10", coinUnit), next()
+	if per > n {
+		t.Fatalf("under the threshold the bound holds: a coin returns %d, the next costs %d", per, n)
+	}
+	if per <= 270_000_000*coinUnit/supply0 {
+		t.Fatalf("but the burn must have LIFTED the return, or the second half proves nothing: %d", per)
+	}
+
+	// Past the threshold — 60% of the original supply gone — and the bound
+	// gives: what one coin returns now exceeds what the next one costs.
+	burnEscrowed(supply0*6/10 - half)
+	per, n = RedeemValue("rd10", coinUnit), next()
+	if per <= n {
+		t.Fatalf("past the threshold a coin returns MORE than the next costs, or A7 is priced on nothing: %d vs %d", per, n)
+	}
+
+	// The worked example, to the µGNOT: a 1 GNOT buy now mints 1,289,920 units
+	// that redeem at once for 1,123,134 µGNOT. Only a burned court pays a round
+	// trip; TestBuyThenRedeemNeverProfits holds the other regime.
+	fundAndBuy(cur, "rd10", sniper, 1_000_000)
+	got := c.coin.BalanceOf(sniper)
+	if got != 1_289_920 {
+		t.Fatalf("1 GNOT at this position mints the recorded figure: %d", got)
+	}
+	testing.SetRealm(testing.NewUserRealm(sniper))
+	back := Redeem(cross(cur), "rd10", got)
+	if back != 1_123_134 {
+		t.Fatalf("and redeems for the recorded figure: %d", back)
+	}
+	if back <= 1_000_000 {
+		t.Fatalf("which is a PROFIT on the round trip, funded by the burned holders: %d", back)
+	}
+	// Conservation survives the exception: every µGNOT is still burned, held or
+	// paid out, and the bank still holds exactly the reserve.
+	if CourtBurnedGNOT("rd10")+ReserveGNOT("rd10")+RedeemedGNOT("rd10") != c.paidIn {
+		t.Fatalf("burned + held + paid out must be every µGNOT paid in")
 	}
 }
 
@@ -381,5 +526,144 @@ func TestVotedCoinCannotBeRedeemedUntilTheRoundResolves(cur realm, t *testing.T)
 	}
 	if VoteLockedOf("rd9", voter) != w {
 		t.Fatal("redeeming the free part must not touch the vote lock")
+	}
+}
+
+// THE KNOB MOVES THE MONEY. Every test above buys at the launch share, and a
+// realm whose splitPayment read the CONSTANT instead of the live variable would
+// have passed all of them while the admin page printed a share no payment used
+// (M7 of the two-way audit). So the share is moved here THROUGH THE ENTRYPOINT,
+// by the address the gate actually compares against — ensureGlobalDAO().admin,
+// which is whoever founded the first court in this package's run — and a buy
+// and a redeem follow each move with the split asserted to the µGNOT.
+//
+// THE SHARE IS A PACKAGE GLOBAL, so it is put back with a defer at test scope
+// (the courtburn tests' discipline): a test that left it at 5000 would fail
+// every neighbour that expects 30 burned of 300, far from here.
+func TestTheBurnShareMovesEveryLaterPayment(cur realm, t *testing.T) {
+	testCourt(cur, "rdbs0", testutils.TestAddress("rd-bs-founder"), 1_000_000) // so the DAO has an admin
+	admin := ensureGlobalDAO().admin
+	defer func() { burnBps = burnBpsInit }()
+
+	for i, bps := range []int64{500, 5000} {
+		testing.SetRealm(testing.NewUserRealm(admin))
+		SetBurnBps(cross(cur), bps)
+		if BurnBps() != bps {
+			t.Fatalf("the admin moves the share: %d, want %d", BurnBps(), bps)
+		}
+		buyer := testutils.TestAddress("rd-bs-buyer-" + strconv.Itoa(i))
+		if !Exists("rdbs1") {
+			testing.SetRealm(testing.NewUserRealm(buyer))
+			StartCourt(cross(cur), "rdbs1", "Burn Share Court")
+		}
+		c := mustCourt("rdbs1")
+		from := c.minted
+		sink, reserve := BurnedGNOT(), ReserveGNOT("rdbs1")
+		fundAndBuy(cur, "rdbs1", buyer, 300_000_000)
+		spent, ok := c.crv.Cost(from, c.minted-from) // the exact cost, from the curve's other side
+		if !ok || spent <= 0 {
+			t.Fatal("fixture: the curve must price the span it just sold")
+		}
+		// The held share floors and the burn takes the remainder, so the burn
+		// rounds UP: at 500 bps exactly 5% of a round spend, at 5000 exactly half.
+		wantHeld := spent * (bpsDenom - bps) / bpsDenom
+		wantBurned := spent - wantHeld
+		if wantBurned*bpsDenom < spent*bps {
+			t.Fatal("fixture: the burn share must round up, never down")
+		}
+		if got := BurnedGNOT() - sink; got != wantBurned {
+			t.Fatalf("at %d bps the sink takes %d of %d, got %d", bps, wantBurned, spent, got)
+		}
+		if got := ReserveGNOT("rdbs1") - reserve; got != wantHeld {
+			t.Fatalf("at %d bps the court holds %d of %d, got %d", bps, wantHeld, spent, got)
+		}
+		if CourtBurnedGNOT("rdbs1")+ReserveGNOT("rdbs1")+RedeemedGNOT("rdbs1") != c.paidIn {
+			t.Fatal("burned + held + paid out must be every µGNOT paid in")
+		}
+		// And the redeem pays the pro-rata share of what is now held, whatever
+		// the share was: the knob prices the way IN, never the way out.
+		amount := CoinBalanceOf("rdbs1", buyer)
+		want := floorProRata(ReserveGNOT("rdbs1"), amount, c.coin.TotalSupply())
+		held := ugnotOf(buyer)
+		testing.SetRealm(testing.NewUserRealm(buyer))
+		if paid := Redeem(cross(cur), "rdbs1", amount); paid != want || ugnotOf(buyer)-held != paid {
+			t.Fatalf("after a %d bps buy the redeem pays the quote: %d vs %d", bps, paid, want)
+		}
+		if CourtBurnedGNOT("rdbs1")+ReserveGNOT("rdbs1")+RedeemedGNOT("rdbs1") != c.paidIn {
+			t.Fatal("after the redeem: burned + held + paid out must still be every µGNOT paid in")
+		}
+	}
+
+	// THE BOUNDS THROUGH THE ENTRYPOINT ARE NOT PROVABLE HERE, and this is
+	// measured rather than assumed: an authorized call that must abort cannot be
+	// expressed in this harness, because testing.SetRealm's caller override does
+	// not reach a cross() made inside revive() — even when set inside the closure
+	// — so the admin arrives as a stranger and the admin gate fires first
+	// (courtburn_test.gno's header records the same finding for
+	// SetCourtCreationBurn). TestSetBurnBpsIsAdminOnlyAndBounded reaches the
+	// value check directly; that the setter CALLS it is held on a real node by
+	// kourtv3_money.txtar, where the deployer asks for 499 and is refused with
+	// the knob unmoved — the `elsewhere` of the corpus row that drops the call.
+}
+
+// COIN THE REDEEMER NEVER PAID FOR REDEEMS AT THE SAME QUOTE. The pro-rata rule
+// was chosen over a per-position cost basis precisely so that a transferee and
+// an earner can exit (TWOWAY.md §4, §9), and until this test nothing held the
+// emission leg end to end: every Redeem in the suite was by the buyer of that
+// coin. Here alice buys, bob receives half by TransferCC and redeems it, then
+// emission mints to carol — through mintEmission, the realm's ONLY emission
+// mint — and the per-coin return falls by exactly N/(N+m) at floor precision
+// before carol redeems coin nobody ever paid GNOT for.
+func TestTransfereesAndEarnersRedeemAtTheQuote(cur realm, t *testing.T) {
+	alice := testutils.TestAddress("rd-te-alice")
+	bob := testutils.TestAddress("rd-te-bob")
+	carol := testutils.TestAddress("rd-te-carol")
+	fundAndBuy(cur, "rd11", alice, 300_000_000)
+	c := mustCourt("rd11")
+
+	// THE TRANSFEREE. bob paid nothing in; the court owes his coin the same
+	// share as anyone's.
+	half := CoinBalanceOf("rd11", alice) / 2
+	testing.SetRealm(testing.NewUserRealm(alice))
+	TransferCC(cross(cur), "rd11", bob, half)
+	want := floorProRata(ReserveGNOT("rd11"), half, c.coin.TotalSupply())
+	held := ugnotOf(bob)
+	testing.SetRealm(testing.NewUserRealm(bob))
+	if paid := Redeem(cross(cur), "rd11", half); paid != want || paid <= 0 || ugnotOf(bob)-held != paid {
+		t.Fatalf("a transferee redeems at the quote: %d vs %d", paid, want)
+	}
+	if CoinBalanceOf("rd11", bob) != 0 {
+		t.Fatal("bob's coin is destroyed by the redeem")
+	}
+
+	// THE EARNER. Emission mints against nothing: the reserve is untouched and
+	// the supply grows by m, so the per-coin figure is diluted by N/(N+m) —
+	// exactly, at floor precision, and downward.
+	before := RedeemValue("rd11", coinUnit)
+	reserve, supply := ReserveGNOT("rd11"), c.coin.TotalSupply()
+	m := supply / 4
+	mintEmission(c, carol, m)
+	after := RedeemValue("rd11", coinUnit)
+	if ReserveGNOT("rd11") != reserve || c.coin.TotalSupply() != supply+m {
+		t.Fatal("emission must move the supply and only the supply")
+	}
+	if want := floorProRata(reserve, coinUnit, supply+m); after != want || after >= before {
+		t.Fatalf("emission dilutes the per-coin return to floor(R·u/(N+m)): %d, want %d (was %d)", after, want, before)
+	}
+	// carol never paid a µGNOT in and is paid the same pro-rata share.
+	want = floorProRata(reserve, m, supply+m)
+	held = ugnotOf(carol)
+	testing.SetRealm(testing.NewUserRealm(carol))
+	if paid := Redeem(cross(cur), "rd11", m); paid != want || paid <= 0 || ugnotOf(carol)-held != paid {
+		t.Fatalf("an earner redeems at the quote: %d vs %d", paid, want)
+	}
+	// Nothing paid in changed hands twice: burned + held + paid out is still
+	// every µGNOT paid in, and the rest of alice's coin is worth what the
+	// diluted quote says.
+	if CourtBurnedGNOT("rd11")+ReserveGNOT("rd11")+RedeemedGNOT("rd11") != c.paidIn {
+		t.Fatal("burned + held + paid out must be every µGNOT paid in")
+	}
+	if RedeemValue("rd11", coinUnit) < after {
+		t.Fatal("a redemption never lowers what the remaining holders are owed per coin")
 	}
 }

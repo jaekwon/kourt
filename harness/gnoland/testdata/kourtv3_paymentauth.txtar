@@ -28,7 +28,7 @@ gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args bedf
 stdout 'OK!'
 
 # --- CONTROL: a DIRECT user call is the sanctioned form and must work -----------
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -args 0 -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 # --- THE GUARD: the same buy through a `maketx run` ephemeral realm is refused ---
@@ -42,5 +42,5 @@ package main
 import "gno.land/r/kourt/kourtv3"
 
 func main(cur realm) {
-	kourtv3.Buy(cross(cur), "bedford")
+	kourtv3.Buy(cross(cur), "bedford", 0)
 }

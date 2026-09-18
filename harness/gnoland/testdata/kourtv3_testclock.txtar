@@ -82,7 +82,7 @@ stdout 'true'
 # --- A claim on the review court, funded by buying meta CC --------------------
 # Buy accepts the meta slug: accrueFranchise skips meta exactly because Buy mints
 # there directly. On a fresh chain the deposit floor sits on its dust arm.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -send 20000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -args 0 -send 20000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func OpenClaim -args meta -args 'Will this claim die of old age?' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1

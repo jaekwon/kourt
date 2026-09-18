@@ -1087,11 +1087,18 @@ func CourtSymbol(slug string) string { return mustCourt(slug).coin.Symbol() }
 func CoinDecimals() int { return coinDecimals }
 func CoinSupply(slug string) int64   { return mustCourt(slug).coin.TotalSupply() }
 
-// CoinPrice is the curve's marginal price for the NEXT coin. It is not what a
-// coin returns: that is RedeemValue (redeem.gno), which is the pro-rata share
-// of what the court holds and is ALWAYS at most CoinPrice × amount — about half
-// of it right after an offering, and less as emission mints (TWOWAY.md). Render
-// the two side by side and never label either one "backing".
+// CoinPrice is the curve's marginal price for the NEXT base unit, floored:
+// s/D with D = 1e9, so it reads 0 on every court whose position is below D
+// (under about 500 GNOT ever paid in) and is a per-BASE-UNIT figure above it —
+// a page quoting a whole coin must use Cost(minted, coinUnit), as
+// writeCourtCoin does. It is not what a coin returns: that is RedeemValue
+// (redeem.gno), the pro-rata share of what the court holds, and
+// RedeemValue(a) ≤ Cost(minted, a) — the exact price of the next `a` units —
+// whenever no coin has been burned by bonds since the last offering (TWOWAY.md
+// §4 proof (c) and §6 A7; a burn shrinks supply with the reserve fixed and can
+// lift the return past the price). About half the price right after an
+// offering, and less as emission mints. Render the two side by side and never
+// label either one "backing".
 func CoinPrice(slug string) int64 { return mustCourt(slug).crv.Price(mustCourt(slug).minted) }
 
 // CourtOneWay reports whether a court's coin is one-way: its payments burn in

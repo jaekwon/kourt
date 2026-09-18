@@ -158,9 +158,12 @@ takes (b). [SETTLED as to history]
    memo to conclude: (i) the held share is in immutable code with one exit —
    the pro-rata `Redeem`, paying floor(reserve × amount / TotalSupply) through
    the same `mustSpendable` (lock.gno) gate as every other outflow — and no
-   other instruction, admin or vote can move it; (ii) the payout is capped
-   below the curve's price, so an immediate round trip always loses (TWOWAY.md
-   §4, proof (c)); (iii) the meta court is one-way at init; (iv)
+   other instruction, admin or vote can move it; (ii) the payout is below the
+   curve's price whenever no coin has been burned by bonds since the last
+   offering, so an immediate round trip loses in that regime (TWOWAY.md §4,
+   proof (c)) — item 4 below and TWOWAY.md §6 A7 state the exception,
+   cumulative forfeitures past ~55% of supply, so the two passages agree; (iii)
+   the meta court is one-way at init; (iv)
    work/correctness-gated rewards and comms hygiene are unchanged. Against
    that, under the profit-expectation prong: an early position recovers above
    its cost when later buyers arrive — the shape of a bonding curve with a

@@ -298,21 +298,46 @@ func renderCourt(slug string) string {
 // than no number: it reads as something you are failing to understand rather
 // than something nobody told you. The gloss is short and in the same sentence,
 // because a legend somewhere else is a legend nobody reads.
+//
+// THE PRICE IS PER WHOLE COIN, AND IT IS THE EXACT COST. curve.Price(s) is the
+// marginal price of one BASE unit, floored — s/D with D = 1e9 — so on every
+// court that has taken in under about 500 GNOT it reads 0, and above that it
+// reads a per-unit figure beside a per-coin return a million times its scale.
+// The page printed exactly that: "price: 0 ugnot per coin" next to "one coin
+// returns 149248 ugnot ... always below the price". The sentence was true and
+// the number made it look false. So the figure here is Cost(minted, coinUnit),
+// the µGNOT the next WHOLE coin costs at this position, rounded up as the curve
+// rounds — the same unit as the return beside it, which is what makes the two
+// comparable at a glance. ok is false only at the curve's cap, where nothing
+// more can be minted and there is no next price to print.
 func writeCourtCoin(b *strings.Builder, c *Court) {
 	b.WriteString("## This court's coin\n\n")
 	b.WriteString("- " + qualifiedSymbol(c) +
 		" — this court's own coin, not interchangeable with any other court's\n")
-	b.WriteString("- price: " + strconv.FormatInt(c.crv.Price(c.minted), 10) +
-		" ugnot per coin — the next coin's price, and it only rises\n")
+	nextCoin, ok := c.crv.Cost(c.minted, coinUnit)
+	if ok {
+		b.WriteString("- price: " + strconv.FormatInt(nextCoin, 10) +
+			" ugnot per coin — the next coin's price, and it only rises\n")
+	} else {
+		b.WriteString("- price: the curve is at its cap; no more coin can be minted\n")
+	}
 	if c.oneWay {
 		b.WriteString("- one-way: every payment burns in full; nothing is held and " +
 			"nothing returns GNOT\n")
 	} else {
 		perCoin, _ := redeemQuote(c, coinUnit)
+		// "BELOW THE NEXT COIN'S PRICE" IS CONDITIONAL, and the condition is
+		// printed. The bound is preserved by every buy, redemption and emission
+		// (TWOWAY.md §4 proof (c)) but not by a coin burn: a forfeited bond
+		// shrinks supply with the reserve fixed, so the per-coin return rises,
+		// and enough of them since the last offering can lift it past the price
+		// (TWOWAY.md §6 A7). An unconditional "always" here would be a promise
+		// the arithmetic does not make.
 		b.WriteString("- held for the coin: " + ugnotAmt(c.reserve) + " GNOT · " +
 			"one coin returns " + strconv.FormatInt(perCoin, 10) +
 			" ugnot right now (what is held × coin ÷ supply, rounded down; " +
-			"always below the price) · " + pct(burnBps, bpsDenom) +
+			"below the next coin's price unless coin has been destroyed by bonds " +
+			"since the last offering) · " + pct(burnBps, bpsDenom) +
 			" of each payment burns\n")
 	}
 	b.WriteString("- in circulation: " + strconv.FormatInt(c.coin.TotalSupply(), 10) +

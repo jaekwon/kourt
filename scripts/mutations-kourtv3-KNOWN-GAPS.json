@@ -258,7 +258,7 @@
   "label": "Redeem: the escrow may redeem",
   "find": "\tif who == c.escrow {\n\t\tpanic(\"kourtv3: the court escrow cannot redeem\")",
   "replace": "\tif false {\n\t\tpanic(\"kourtv3: the court escrow cannot redeem\")",
-  "why": "The escrow is the realm's own address and holds bonds and deposits; no test can call Redeem AS that address (testing.SetRealm cannot impersonate the code realm as a user caller), so the refusal is held by reading, by TransferCC's identical refusal, and by kourtv3_money.txtar's bank balances, which would show GNOT paid to the realm from the realm."
+  "why": "UNREACHABLE BY CONSTRUCTION, and held by reading, not by any harness. The escrow is the realm's own address (startCourt passes cur.Address()), so the only caller Redeem could ever see as the escrow is kourtv3 itself calling itself — and no code in this realm calls Redeem. No test can call Redeem AS that address either (testing.SetRealm cannot impersonate the code realm as a user caller), so the refusal is held by the order of the refusal chain as written and by TransferCC's identical refusal of the escrow as an endpoint (lock.gno). An earlier why cited kourtv3_money.txtar's bank balances as evidence; that was wrong — both of that file's Redeem transactions are by test1, so the mutant leaves every balance in it identical."
  },
  {
   "pkg": "kourtv3",

@@ -51,8 +51,9 @@ commit**, not as a follow-up.
   not a redemption. What kourtv3 adds beside it is a **pro-rata return** from the court's held
   share, priced below the curve: a tenth of every payment burns to the keyless sink (`BurnBps`,
   `splitPayment` in `redeem.gno`, called from `buy.gno`) and the rest is held per court as `reserve`; `Redeem` (`redeem.gno`)
-  pays `floor(reserve × amount / TotalSupply)` for uncommitted coin, never above the curve's price
-  for the next coin — less than half of it right after an offering, and less as emission mints. A
+  pays `floor(reserve × amount / TotalSupply)` for uncommitted coin, below the curve's price for
+  the next coin unless coin has been destroyed by bonds since the last offering (TWOWAY.md §6 A7) —
+  less than half of it right after an offering, and less as emission mints. A
   court may still be founded one-way (`StartOneWayCourt`), the meta court is, and on V2's three
   mainnet courts nothing ever returns. The held share is not backing and the return is not a
   value; it is that arithmetic.

@@ -29,7 +29,7 @@ func fundAndBuy(cur realm, slug string, who address, gnot int64) {
 	testing.IssueCoins(chain.PackageAddress(kourtPath), chain.Coins{{Denom: "ugnot", Amount: gnot}})
 	testing.SetOriginSend(chain.Coins{{Denom: "ugnot", Amount: gnot}})
 	testing.SetRealm(testing.NewUserRealm(who))
-	kourtv3.Buy(cross(cur), slug)
+	kourtv3.Buy(cross(cur), slug, 0) // no floor: the fixture takes what the curve gives
 	testing.SetOriginSend(nil)
 }
 

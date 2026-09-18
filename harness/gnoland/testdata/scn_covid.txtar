@@ -39,31 +39,31 @@ stdout 'true'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func StartCourt -args 'covid' -args 'COVID-19 Origins Court' -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 250000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test virology
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 250000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test virology
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 240000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test biosafety
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 240000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test biosafety
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 140000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test foia
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 140000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test foia
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 200000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test epi
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 200000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test epi
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 260000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test oversight
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 260000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test oversight
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 170000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test journo
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 170000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test journo
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 120000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test skeptic
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 120000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test skeptic
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 240000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test trader
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 240000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test trader
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -send 200000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test arbiter
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'covid' -args '0' -send 200000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test arbiter
 stdout 'OK!'
 
 gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.CoinSupply(\"covid\")"'

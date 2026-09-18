@@ -1,10 +1,14 @@
 # V3 money core against a real node. The one claim a unit harness cannot make:
-# Buy's GNOT really SPLITS — a tenth reaches the keyless burn sink (a
-# never-created sub-realm address), nine tenths stay at the realm's own account
-# as the court's reserve, the realm's own reads agree with the bank — and Redeem
-# really PAYS: coin is destroyed and exactly the quoted pro-rata share arrives
-# back at the redeemer. In-harness, testing.SetOriginSend declares an envelope
-# without crediting anyone; here the coins move or fail.
+# Buy's GNOT really SPLITS — a tenth reaches the keyless burn sink (an address
+# derived from a package path carrying a ':', which the path grammar can never
+# assign to a deployed realm), nine tenths stay at the realm's own account as the
+# court's reserve, the realm's own reads agree with the bank — and Redeem really
+# PAYS: coin is destroyed and exactly the quoted pro-rata share arrives back at
+# the redeemer, watched at the REDEEMER'S OWN balance and not only at the
+# realm's. In-harness, testing.SetOriginSend declares an envelope without
+# crediting anyone; here the coins move or fail. Buy's third argument is the
+# buyer's floor on units minted (0 here: no floor); the floor's refusal is held
+# in-process by TestBuyMinUnitsRefusesAndRefunds.
 #
 # Also on-chain-checked: CC escrow conservation through OpenClaim/Stake/Unstake,
 # zero emission before any verdict (the 20% ceiling starts at literal zero), and
@@ -68,7 +72,7 @@ stdout '\(false bool\)'
 # to the burn sink in the same call and the rest STAYS at the realm's account as
 # this court's reserve. Both halves are read back two ways — the bank, and the
 # realm's own ledgered counters — and they must agree to the µGNOT.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -args 0 -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout '\([1-9][0-9]* int64\)'
 stdout 'OK!'
 
@@ -100,7 +104,7 @@ stdout '\(0 int64\)'
 
 # A second buy accumulates in both: the sink's share is monotone, the reserve
 # grows by the held share. 5 GNOT at this position mints 15,434,713 more units.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -send 5000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -args 0 -send 5000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 gnokey query bank/balances/${SINK}
 stdout 'data: "5500000ugnot"'
@@ -119,9 +123,21 @@ stdout '\(331662479 int64\)'
 # -send: Redeem takes no GNOT and refuses any that is attached.
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.RedeemValue(\"bedford\",100000000)"
 stdout '\(14924811 int64\)'
+# THE REDEEMER'S OWN BALANCE, BEFORE AND AFTER. The realm's and the sink's
+# balances below prove the GNOT left the reserve; only this pair proves it
+# arrived at the redeemer rather than at a third address. The literals are from
+# a run of this file — test1's genesis balance less every gas fee and storage
+# deposit charged so far — so any change to the transactions above moves them,
+# which is why they sit right beside the Redeem. The pair differs by exactly
+# 13,924,811 = 14,924,811 paid out − 1,000,000 gas fee: the Redeem itself
+# charged no net storage deposit.
+gnokey query bank/balances/${USER_ADDR}
+stdout 'data: "9999828174900ugnot"'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Redeem -args bedford -args 100000000 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout '\(14924811 int64\)'
 stdout 'OK!'
+gnokey query bank/balances/${USER_ADDR}
+stdout 'data: "9999842099711ugnot"'
 gnokey query bank/balances/${COURTV3}
 stdout 'data: "34575189ugnot"'
 gnokey query bank/balances/${SINK}
@@ -144,7 +160,7 @@ stdout '\(5500000 int64\)'
 stderr 'too small to return a µGNOT'
 # The meta court is founded one-way: a direct offering burns in full and nothing
 # is ever held for it.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args meta -args 0 -send 1000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout 'OK!'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ReserveGNOT(\"meta\")"
 stdout '\(0 int64\)'
@@ -152,6 +168,10 @@ gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.RedeemValue(\"meta\",1000
 stdout '\(0 int64\)'
 gnokey query bank/balances/${SINK}
 stdout 'data: "6500000ugnot"'
+# And the realm's own balance did not move: a one-way payment leaves nothing at
+# the realm, so bedford's reserve is still the whole of what it holds.
+gnokey query bank/balances/${COURTV3}
+stdout 'data: "34575189ugnot"'
 
 # --- Claim + stake: real CC escrow conservation ---------------------------------
 # OpenClaim escrows deposit (1 CC) + fee (0.1 CC) = 1_100_000 base units.
@@ -249,3 +269,33 @@ gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.QueueLen(\"bedford\")"
 stdout '\(0 uint64\)'
 gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.PoolConviction(\"bedford\",2)"
 stdout '\(0 int64\)'
+
+# --- The burn share, moved by the deployer, on a real node ------------------------
+# The deployer is the DAO admin from AddPackage (init founds the meta court).
+# Moving the share is the one governance act that reprices the money path, so
+# it is exercised here end to end: the share moves, the NEXT payment splits at
+# the new share to the µGNOT — 5 GNOT at 2000 bps burns 1 and holds 4 — and a
+# share outside [500, 5000] is refused by the entrypoint with the knob unmoved.
+# That last arm is the `elsewhere` for the corpus row that drops the bounds
+# call from SetBurnBps: the in-process harness cannot express an authorized
+# call that must abort (redeem_test.gno, TestTheBurnShareMovesEveryLaterPayment).
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func SetBurnBps -args 2000 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stdout 'OK!'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.BurnBps()"
+stdout '\(2000 int64\)'
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args bedford -args 0 -send 5000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stdout 'OK!'
+gnokey query bank/balances/${SINK}
+stdout 'data: "7500000ugnot"'
+gnokey query bank/balances/${COURTV3}
+stdout 'data: "38575189ugnot"'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.ReserveGNOT(\"bedford\")"
+stdout '\(38575189 int64\)'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.CurvePosition(\"bedford\")"
+stdout '\(346410161 int64\)'
+! gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func SetBurnBps -args 499 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stderr 'the burn share must be between 500 and 5000 bps'
+! gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func SetBurnBps -args 5001 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+stderr 'the burn share must be between 500 and 5000 bps'
+gnokey query vm/qeval --data "gno.land/r/kourt/kourtv3.BurnBps()"
+stdout '\(2000 int64\)'

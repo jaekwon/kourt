@@ -15,10 +15,17 @@ import (
 
 const gnotDenom = "ugnot"
 
-// burnSinkPath derives the keyless burn address: a sub-realm
-// identity of THIS realm that is never created. Only kourtv3 itself could ever
-// instantiate it (realm.Sub is parent-only), and it never does — so no key,
-// no code, no path to the coins, ever.
+// burnSinkPath derives the keyless burn address. chain.PackageAddress hashes the
+// string it is given, and THE GUARANTEE IS THE PACKAGE-PATH GRAMMAR, not any
+// realm API: this string carries a ':', which no deployable package path may
+// contain, so no addpkg can ever create a realm at it, no `maketx run` can be
+// it, and it is not a sub-realm of kourtv3 either — gno's sub-realm separator
+// is '#', so kourtv3's own realm.Sub("burned") would derive a different address
+// altogether. (An earlier comment here called it "a sub-realm identity that is
+// never created"; that was the right conclusion for the wrong reason, and the
+// frozen kourtv2 copy still says it.) No key, no code, no path to the coins,
+// ever — and the address is recomputable by anyone from this line, which is
+// what kourtv3_money.txtar does.
 const burnSinkPath = "gno.land/r/kourt/kourtv3:burned"
 
 // Buy mints CC for GNOT on the curve, burns the burn share of the payment and
@@ -26,7 +33,29 @@ const burnSinkPath = "gno.land/r/kourt/kourtv3:burned"
 // remainder of the payment is refunded. The curve is the only GNOT-side mint
 // and its position is monotonic — the same stretch is never sold twice, and
 // Redeem never walks it back.
-func Buy(cur realm, slug string) int64 {
+//
+// minUnits IS THE BUYER'S FLOOR: the fewest base units they will accept for
+// the GNOT attached. 0 means no floor. If the offering would mint fewer, the
+// call aborts BEFORE any state moves or any coin is sent, so the attached GNOT
+// comes back with the aborted transaction.
+//
+// WHY A FLOOR, AND WHY ON THE BUYER'S SIDE. Curve-minted coin is redeemable in
+// the very next transaction, and a buy is priced off the position at the
+// moment it lands, not the moment it was signed. So whoever can order a block
+// ahead of a large buy into a young court has a riskless lap: buy just before
+// it, let the victim's buy walk the price up, redeem just after — the victim
+// is the "later buyer" whose GNOT funds the §4 early-position windfall, and
+// they receive fewer units than the page quoted them (TWOWAY.md §6 A15: worth
+// doing once the incoming buy is about four times what the court has taken
+// in, and needing ordering control, which a proposer or an announced launch buy
+// supplies). The realm cannot see intent, but the buyer knows what they were
+// quoted: passing that figure here turns "I received less than I was shown"
+// from a loss into a refusal. The alternative — a per-position cost basis or a
+// redemption hold on fresh curve coin — would reprice every holder's exit to
+// close one ordering attack; TWOWAY.md §9 records it as considered and not
+// taken. A negative floor is vacuous, exactly like 0: delta is positive by the
+// guard above the check, so it can never be below one.
+func Buy(cur realm, slug string, minUnits int64) int64 {
 	if !cur.IsCurrent() {
 		panic(errStaleRealm)
 	}
@@ -56,6 +85,20 @@ func Buy(cur realm, slug string) int64 {
 	if delta <= 0 {
 		// Aborting reverts the incoming send — the buyer keeps their GNOT.
 		panic("kourtv3: payment too small to mint a coin")
+	}
+	// THE FLOOR, checked before the first write OF THE BUY. touch(c) above is
+	// time accrual that every call into this court performs whether or not this
+	// one goes through — it moves lastAccrual, the accrual carry and, at a
+	// period boundary, the period — and on a node the aborted transaction
+	// reverts it with everything else. Nothing the BUY does has happened yet:
+	// everything below this line moves the position, the ledger, the reserve
+	// or the sink, so a refusal here leaves all four exactly as they were and
+	// the aborted transaction returns the envelope
+	// (TestBuyMinUnitsRefusesAndRefunds pins the four). Both figures are
+	// named, need-and-have, as every refusal in this realm leads with them.
+	if delta < minUnits {
+		panic("kourtv3: this offering would mint fewer units than your floor — " +
+			strconv.FormatInt(delta, 10) + " < " + strconv.FormatInt(minUnits, 10))
 	}
 	c.minted += delta // monotonic curve position
 	recordPrice(c)     // the position moved, so the price may have ticked

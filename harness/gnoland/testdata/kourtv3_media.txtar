@@ -39,7 +39,7 @@ gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func SetSiteDomain -args k
 stdout OK!
 
 # Claims cost a refundable CC deposit, so buy into the court's curve first.
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args med -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args med -args 0 -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 
 # --- A claim carrying evidence -------------------------------------------------

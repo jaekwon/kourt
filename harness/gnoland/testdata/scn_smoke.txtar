@@ -55,10 +55,10 @@ stdout 'OK!'
 gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.TestClockActive()"'
 stdout 'true'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test alice
 stdout 'OK!'
 
-gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
+gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Buy -args 'bedford' -args '0' -send 50000000ugnot -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test bob
 stdout 'OK!'
 
 gnokey query vm/qeval --data '"gno.land/r/kourt/kourtv3.CoinSupply(\"bedford\")"'

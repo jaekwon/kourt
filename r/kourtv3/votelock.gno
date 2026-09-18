@@ -47,7 +47,7 @@ import "gno.land/p/nt/bptree/v0"
 // over-restrictive, never under.
 //
 // WHAT IT COSTS ON THE HOT PATH, and what I could not measure. voteLockedOf runs
-// inside disposable(), so every one of the seven mustSpendable call sites now walks
+// inside disposable(), so every one of the nine mustSpendable call sites now walks
 // one address's lock rows. The cost is O(rows for that address), and the row count is
 // bounded twice: at most one row per question that address has voted in and which was
 // still open at its last vote, and lockVote prunes every resolved row on the next
