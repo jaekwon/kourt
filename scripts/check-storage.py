@@ -178,6 +178,37 @@ TARGETS = [
             "z_read_filetest.gno": None,
         },
     },
+    {
+        "src": os.path.join(REPO, "r/guilds"),
+        "dest": "examples/gno.land/r/kourt/guilds",
+        # guilds imports NOTHING from p/kourt. It holds one string per court and
+        # asks kourtv2 who may set it, so kourtv2's own deps are what it needs
+        # staged and none of its own.
+        "deps": ["checkpoint", "grc20votes", "governor", "twap", "curve"],
+        "realm_deps": ["kourtv2"],
+        "budgets": {
+            # None, and it matters more than the size of this realm suggests.
+            # kourt.xyz asks GuildOf for every court on every reconcile, forever,
+            # including courts that never chose a server — so the "not found"
+            # path is the hot one, and a lazily-created empty node there would be
+            # invisible and permanent.
+            "z_read_filetest.gno": None,
+            # TWO COURTS BOUND, ONE CLEARED, measured at 5,437b. Nearly all of
+            # that is the bptree's first node, which a two-court file pays once:
+            # the same file storing only the guild id — before the setter was
+            # recorded beside it — measured 4,979b, so THE WHOLE OF `choice`
+            # COSTS ABOUT 458b PER COURT. Both figures are kept because neither
+            # is guessable from the other, and because the next field added here
+            # should be weighed against a number rather than against a feeling.
+            #
+            # 5,700 against 5,437 is about 5% headroom, the same band as
+            # kourtv2's entries above and deliberately tight: ordinary copy churn
+            # does not move a bptree node, and a third field on `choice` would
+            # trip this and have to be argued for. Do not raise it to make room
+            # for one.
+            "z_write_filetest.gno": 5_700,
+        },
+    },
 ]
 
 

@@ -1664,8 +1664,8 @@ else:
     # breaking. It must break LOUDLY, never by quietly reading a shorter list.
     control("a guard that lost its coupling to the Makefile",
             os.path.join(REPO, "Makefile"),
-            "for r in govern offerer kourtv1 kourtv2 ccwrap; do",
-            "for rlm in govern offerer kourtv1 kourtv2 ccwrap; do",
+            "for r in govern offerer kourtv1 kourtv2 ccwrap guilds; do",
+            "for rlm in govern offerer kourtv1 kourtv2 ccwrap guilds; do",
             "cannot read realm-test's package lists",
             argv=["python3", "scripts/check-isolation.py",
                   "--only", "TestAMalformedRulesPayloadIsRefusedAtTheDoor"])
