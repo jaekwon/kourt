@@ -81,7 +81,8 @@
   "file": "openrewards.gno",
   "label": "PullCarrot: the carrot is not once-per-address, so it can be claimed twice",
   "find": "\tif cs.voted.Has(claimedKey) {",
-  "replace": "\tif false {"
+  "replace": "\tif false {",
+  "why": "Found SURVIVING the whole kourtv3 suite: no test ever pulled the same carrot twice from one address. Killed by TestDecidedCarrotRefusesTheAgainstVerdictVoter, where carol's second pull must abort 'carrot already claimed'."
  },
  {
   "pkg": "kourtv3",
@@ -936,7 +937,8 @@
   "file": "openrewards.gno",
   "label": "PullCarrot: a participant draws the carrot as well as its slice",
   "find": "\tif isParticipant(cs, who) {",
-  "replace": "\tif false {"
+  "replace": "\tif false {",
+  "why": "Found SURVIVING: no test asked whether a participant could take the carrot on top of its slices. Killed by TestDecidedCarrotRefusesTheAgainstVerdictVoter, where alice (author and answerer) is refused 'participants take their own slices'."
  },
  {
   "pkg": "kourtv3",
@@ -950,14 +952,16 @@
   "file": "openrewards.gno",
   "label": "PullCarrot: a share may exceed what is left in the pool",
   "find": "\tif share > cs.carrotPool {",
-  "replace": "\tif false {"
+  "replace": "\tif false {",
+  "why": "Found SURVIVING: every carrot fixture pulled from a full pool, so the cap never bound. Killed by TestDecidedCarrotRefusesTheAgainstVerdictVoter, which halves carrotPool under the sole winner's share and requires the pull to pay exactly the pool and leave it at zero, not negative."
  },
  {
   "pkg": "kourtv3",
   "file": "openrewards.gno",
   "label": "PullCarrot: the claim latch is never written",
   "find": "\tcs.voted.Set(claimedKey, true)",
-  "replace": ""
+  "replace": "",
+  "why": "Found SURVIVING alongside the once-per-address row, for the same reason. Killed by the same second pull in TestDecidedCarrotRefusesTheAgainstVerdictVoter: with no latch written the second pull pays again instead of aborting."
  },
  {
   "pkg": "kourtv3",

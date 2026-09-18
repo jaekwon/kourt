@@ -642,11 +642,49 @@ func TestDecidedCarrotRefusesTheAgainstVerdictVoter(cur realm, t *testing.T) {
 		t.Fatalf("setup: a decided round must leave a carrot to fight over: %d", carrot)
 	}
 
-	// The voter who voted WITH the verdict is paid.
-	testing.SetRealm(testing.NewUserRealm(carol))
-	if share := PullCarrot(cross(cur), "cvd1", id); share <= 0 {
-		t.Fatalf("the with-verdict voter must be paid: %d", share)
+	// A PARTICIPANT IS REFUSED FIRST. Found SURVIVING: `if isParticipant` replaced
+	// by `if false` and the whole suite still passed — alice takes her own slices,
+	// and no test had ever asked whether she could take the carrot as well.
+	testing.SetRealm(testing.NewUserRealm(alice))
+	uassert.AbortsContains(t, cur, "participants take their own slices", func() {
+		PullCarrot(cross(cur), "cvd1", id)
+	})
+
+	// The voter who voted WITH the verdict is paid — AND NEVER MORE THAN THE POOL
+	// HOLDS. Found SURVIVING: the `share > carrotPool` cap replaced by `if false`
+	// and nothing objected, because every fixture pulled from a full pool. Carol
+	// is the sole with-verdict voter, so her uncapped share is the whole carrot
+	// (w == denom), clamped at b0/2-1; shrink the pool under that and the pull
+	// must pay exactly the pool, and leave it empty rather than negative.
+	cs = mustClaim(c, id)
+	want := cs.carrotTotal
+	b0 := cs.xBarFrozen * carrotClampXBps / 10000
+	if b0 < carrotClampMinCC {
+		b0 = carrotClampMinCC
 	}
+	if clamp := b0/2 - 1; want > clamp {
+		want = clamp
+	}
+	if want < 2 {
+		t.Fatalf("setup: the sole winner's share must leave room to halve the pool: %d", want)
+	}
+	cs.carrotPool = want / 2
+	testing.SetRealm(testing.NewUserRealm(carol))
+	if share := PullCarrot(cross(cur), "cvd1", id); share != want/2 {
+		t.Fatalf("a share is capped at what is left in the pool: got %d want %d (uncapped %d)",
+			share, want/2, want)
+	}
+	if cs.carrotPool != 0 {
+		t.Fatalf("the capped pull must drain the pool, not overdraw it: %d", cs.carrotPool)
+	}
+	// AND PAID ONCE. Found SURVIVING: with the "c"+round+address latch replaced by
+	// `if false` the whole suite still passed, because no test ever pulled the same
+	// carrot twice from the same address. In production that is the pool paid out
+	// as many times as the voter cares to call.
+	testing.SetRealm(testing.NewUserRealm(carol))
+	uassert.AbortsContains(t, cur, "carrot already claimed", func() {
+		PullCarrot(cross(cur), "cvd1", id)
+	})
 	// The one who voted against it is not — and note it is refused for the RIGHT
 	// reason: dan did vote, so this cannot pass by way of the non-voter branch.
 	testing.SetRealm(testing.NewUserRealm(dan))
