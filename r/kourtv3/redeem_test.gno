@@ -314,6 +314,11 @@ func TestReservesReconcileWithTheBank(cur realm, t *testing.T) {
 // THE KNOB. Admin-only, bounded, applies to later payments only, and the packed
 // admin-params line carries it.
 func TestSetBurnBpsIsAdminOnlyAndBounded(cur realm, t *testing.T) {
+	// The global DAO's admin is whoever founded the FIRST court, so a court has
+	// to exist before "only the admin" is the refusal a stranger meets. Run alone
+	// this test used to get "no court exists yet" instead, and pass only in the
+	// company of neighbours that had founded one — which check-isolation caught.
+	testCourt(cur, "rdbb", testutils.TestAddress("rd-bb-founder"), 1_000_000)
 	stranger := testutils.TestAddress("rd-stranger")
 	testing.SetRealm(testing.NewUserRealm(stranger))
 	uassert.AbortsContains(t, cur, "kourtv3: only the global DAO admin sets the burn share", func() {

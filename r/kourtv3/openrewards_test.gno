@@ -596,10 +596,12 @@ func TestDecidedCarrotRefusesTheAgainstVerdictVoter(cur realm, t *testing.T) {
 	bob := testutils.TestAddress("cvd1-bob")     // disputer
 	carol := testutils.TestAddress("cvd1-carol") // votes NO, wins, big weight
 	dan := testutils.TestAddress("cvd1-dan")     // votes YES, loses
+	eve := testutils.TestAddress("cvd1-eve")     // votes NO too, small weight, pulls last
 	c := testCourt(cur, "cvd1", alice, 50_000_000_000)
 	c.coin.Mint(bob, 1_000_000_000)
 	c.coin.Mint(carol, 5_000_000_000)
 	c.coin.Mint(dan, 1_000_000_000)
+	c.coin.Mint(eve, 1_000_000_000)
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	id := OpenClaim(cross(cur), "cvd1", "a decided round pays only its own side")
@@ -623,6 +625,8 @@ func TestDecidedCarrotRefusesTheAgainstVerdictVoter(cur realm, t *testing.T) {
 	VoteDispute(cross(cur), "cvd1", id, "no")
 	testing.SetRealm(testing.NewUserRealm(dan))
 	VoteDispute(cross(cur), "cvd1", id, "yes")
+	testing.SetRealm(testing.NewUserRealm(eve))
+	VoteDispute(cross(cur), "cvd1", id, "no")
 	testing.SkipHeights(c.params.votingBlocks + 1)
 	ResolveDispute(cross(cur), "cvd1", id)
 
@@ -652,12 +656,13 @@ func TestDecidedCarrotRefusesTheAgainstVerdictVoter(cur realm, t *testing.T) {
 
 	// The voter who voted WITH the verdict is paid — AND NEVER MORE THAN THE POOL
 	// HOLDS. Found SURVIVING: the `share > carrotPool` cap replaced by `if false`
-	// and nothing objected, because every fixture pulled from a full pool. Carol
-	// is the sole with-verdict voter, so her uncapped share is the whole carrot
-	// (w == denom), clamped at b0/2-1; shrink the pool under that and the pull
-	// must pay exactly the pool, and leave it empty rather than negative.
+	// and nothing objected, because every fixture pulled from a full pool. Carol's
+	// uncapped share is carrotTotal*w/denom over the two NO voters, clamped at
+	// b0/2-1; shrink the pool under that and the pull must pay exactly the pool,
+	// and leave it empty rather than negative.
 	cs = mustClaim(c, id)
-	want := cs.carrotTotal
+	wC := cs.voted.Get("dw" + beClaimKey(uint64(cs.decidedPID)) + string(carol)).(int64)
+	want := mulDiv128(cs.carrotTotal, wC, cs.carrotDenom)
 	b0 := cs.xBarFrozen * carrotClampXBps / 10000
 	if b0 < carrotClampMinCC {
 		b0 = carrotClampMinCC
@@ -676,6 +681,20 @@ func TestDecidedCarrotRefusesTheAgainstVerdictVoter(cur realm, t *testing.T) {
 	}
 	if cs.carrotPool != 0 {
 		t.Fatalf("the capped pull must drain the pool, not overdraw it: %d", cs.carrotPool)
+	}
+	// AND A SHARE OF NOTHING IS NOTHING, NOT A ZERO ENTITLEMENT. Found SURVIVING:
+	// `share <= 0` loosened to `share < 0` and nothing objected, because no
+	// with-verdict voter had ever met an empty pool. Eve did vote NO, so she is
+	// owed her share of the pool — which is now empty. The pull must return 0 and
+	// enqueue nothing; enqueueSenior refuses a zero amount, so the loosened guard
+	// aborts here instead.
+	owedBefore := SeniorOwed("cvd1")
+	testing.SetRealm(testing.NewUserRealm(eve))
+	if got := PullCarrot(cross(cur), "cvd1", id); got != 0 {
+		t.Fatalf("an empty pool pays nothing: %d", got)
+	}
+	if owed := SeniorOwed("cvd1"); owed != owedBefore {
+		t.Fatalf("a zero share must not be enqueued: owed %d -> %d", owedBefore, owed)
 	}
 	// AND PAID ONCE. Found SURVIVING: with the "c"+round+address latch replaced by
 	// `if false` the whole suite still passed, because no test ever pulled the same

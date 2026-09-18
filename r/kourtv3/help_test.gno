@@ -94,7 +94,8 @@ func TestACourtLeadsWithItsClaimsNotItsPlumbing(cur realm, t *testing.T) {
 	// NOTHING WAS DROPPED IN THE MOVE. Every figure that was above the claims is
 	// still on the page — this is a reordering, not a deletion.
 	for _, must := range []string{
-		"ugnot per coin", "in circulation:", "paid out as rewards so far:",
+		"ugnot per coin", "the next coin's price, and it only rises",
+		"in circulation:", "paid out as rewards so far:",
 		"reward reservoir:", "already owed to earlier earners",
 	} {
 		if !strings.Contains(page, must) {

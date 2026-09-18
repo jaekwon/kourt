@@ -7952,7 +7952,8 @@
   "file": "openrewards.gno",
   "label": "PullCarrot: a zero share is enqueued instead of returning nothing",
   "find": "\tif share <= 0 {\n\t\treturn 0\n\t}",
-  "replace": "\tif share < 0 {\n\t\treturn 0\n\t}"
+  "replace": "\tif share < 0 {\n\t\treturn 0\n\t}",
+  "why": "Found SURVIVING: no with-verdict voter had ever met an empty pool, so share was never 0 at this line. Killed by TestDecidedCarrotRefusesTheAgainstVerdictVoter, where eve pulls after carol has drained the pool: the pull must return 0 and leave SeniorOwed unchanged, and the loosened guard reaches enqueueSenior, which refuses a zero amount."
  },
  {
   "pkg": "kourtv3",
@@ -10012,7 +10013,8 @@
   "file": "render.gno",
   "label": "v0.58 help: the price gloss goes",
   "find": "\" ugnot per coin — the next coin's price, and it only rises\\n\"",
-  "replace": "\" ugnot per coin\\n\""
+  "replace": "\" ugnot per coin\\n\"",
+  "why": "Found SURVIVING: help_test pinned 'ugnot per coin' but not its gloss. Killed by TestACourtLeadsWithItsClaimsNotItsPlumbing, which now requires 'the next coin's price, and it only rises' on the court page."
  },
  {
   "pkg": "kourtv3",
