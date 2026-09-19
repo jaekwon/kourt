@@ -11311,5 +11311,40 @@
   "find": "\tleast := supply / c.reserve\n\tif supply%c.reserve != 0 {\n\t\tleast++\n\t}\n",
   "replace": "\tleast := supply / c.reserve\n",
   "why": "L16 of the two-way audit: the hint would name an amount that is refused again when followed (2 on the fixture court, where 3 is the least that pays a µGNOT). Every earlier assertion matched only the message's prefix. Killed by TestRedeemRefusesWhatItMust, which computes ceil(supply/reserve) by hand and asserts the full message, then redeems the hint and one below it."
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "handover.gno",
+  "label": "HandOver: a stranger hands the realm over",
+  "find": "\tif who != d.admin {\n\t\tpanic(\"kourtv3: only the global DAO admin hands over\")\n\t}\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "handover.gno",
+  "label": "HandOver: the old key keeps its DAO seat",
+  "find": "\tif d.members.Has(who.String()) {\n\t\td.members.Remove(who.String())",
+  "replace": "\tif false && d.members.Has(who.String()) {\n\t\td.members.Remove(who.String())"
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "handover.gno",
+  "label": "HandOver: DirectoryAdmin does not follow the seat",
+  "find": "\tdirectoryAdmin = to\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "handover.gno",
+  "label": "HandOver: the founded courts keep their creator",
+  "find": "\t\tc.admin = to\n",
+  "replace": ""
+ },
+ {
+  "pkg": "kourtv3",
+  "file": "handover.gno",
+  "label": "HandOver: the creator's moderator seat is not moved",
+  "find": "\t\tif cm := c.mod; cm != nil && !cm.creatorUnseated {",
+  "replace": "\t\tif cm := c.mod; false && cm != nil && !cm.creatorUnseated {"
  }
 ]

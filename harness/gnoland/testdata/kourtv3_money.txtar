@@ -128,16 +128,19 @@ stdout '\(14924811 int64\)'
 # arrived at the redeemer rather than at a third address. The literals are from
 # a run of this file — test1's genesis balance less every gas fee and storage
 # deposit charged so far — so any change to the transactions above moves them,
+# and so does a change to the realm's own source: the package block that every
+# Buy rewrites is stored with the realm's declarations, so a new exported
+# function moves the first Buy's storage deposit and both literals with it —
 # which is why they sit right beside the Redeem. The pair differs by exactly
 # 13,924,811 = 14,924,811 paid out − 1,000,000 gas fee: the Redeem itself
 # charged no net storage deposit.
 gnokey query bank/balances/${USER_ADDR}
-stdout 'data: "9999828174900ugnot"'
+stdout 'data: "9999828053200ugnot"'
 gnokey maketx call -pkgpath gno.land/r/kourt/kourtv3 -func Redeem -args bedford -args 100000000 -gas-fee 1000000ugnot -gas-wanted 200000000 -broadcast -chainid=tendermint_test test1
 stdout '\(14924811 int64\)'
 stdout 'OK!'
 gnokey query bank/balances/${USER_ADDR}
-stdout 'data: "9999842099711ugnot"'
+stdout 'data: "9999841978011ugnot"'
 gnokey query bank/balances/${COURTV3}
 stdout 'data: "34575189ugnot"'
 gnokey query bank/balances/${SINK}

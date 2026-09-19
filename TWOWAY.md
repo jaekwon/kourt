@@ -448,7 +448,7 @@ WHITEPAPER §7's "the coins are not investments" is kept with a re-opinion flag.
 | denominator | live `TotalSupply` | `+ SeniorOwed` (a half-fix: junior reservations have no counter) |
 | test clock | ships unchanged; window closed by the first `StartCourt` | strip (forks tested from shipped source), seal at deploy (cannot run on an unarmed realm) |
 
-## 10. Deploying it (kourtv3 to gnoland-1, key g1ecsuj0…)
+## 10. Deploying it (kourtv3 to gnoland-1, from a hot key, handed over to g1ecsuj0…)
 
 1. Clean tree at a tag; cryptocourt's `realm` submodule at that tag;
    `REQUIRE_GNO=1 make check`, `make txtar-test`, `make selftest`, `make mutate`
@@ -476,20 +476,39 @@ WHITEPAPER §7's "the coins are not investments" is kept with a re-opinion flag.
    build means the source was kourtv2; stop. The five `p/` libraries are
    already on chain and are not redeployed (V3 changes none of them; a change
    would need a `/v1` path).
-4. `gnokey maketx addpkg … -simulate only`; record gas and the storage deposit
-   (V2's was 200 GNOT).
+4. `gnokey maketx addpkg … -simulate only` for the five libraries; record gas
+   and the storage deposit. The REALM cannot be simulated through the public
+   RPC: its ~940 KB source exceeds the `abci_query` body limit ("request body
+   too large"), so it is broadcast with `-simulate skip` and an explicit
+   `-gas-wanted` — V2 used 900,000,000 and consumed 388,602,281 — and
+   `-max-deposit` above V2's 200 GNOT deposit (storage is 100 ugnot per
+   stored byte). On-chain rule worth knowing before naming anything: the Go
+   package name must equal the last path element (`package kourtv3` ↔
+   `…/kourtv3`), which is why a second guilds realm is `package guildsv3` at
+   `…/guildsv3`.
 5. Broadcast the `addpkg`. The **next** transaction from the same key is
    `StartCourt` of the first real court — this closes the test clock's arming
    window for good. There is no seal step.
-6. If a burn share other than 1000 is wanted: `SetBurnBps` as the third
-   transaction (the deployer is DAO admin from `AddPackage`, because init founds
-   the meta court).
-7. Post-deploy asserts: `BurnSink()` is not the V2 sink; `CourtEscrow("meta")`
-   is the new realm's address; `DirectoryAdmin()` is the deployer; `BurnBps() ==
-   1000`; `TestClockFabricated() == false`; `CourtCount() ≥ 2`;
+6. `HandOver(<ledger address>)` as the third transaction from the same key.
+   The realm is deployed from a key that can sign unattended (a hot key on a
+   laptop, whose address becomes the realm's namespace), and a hot key must
+   not stay the owner of pricing, moderation, the burn share and the meta
+   court's bench. handover.gno moves every seat AddPackage gave the deployer
+   in one call — the DAO admin seat (the hot key is unseated, not left as a
+   member), `directoryAdmin`, and the creator and moderator seat of every
+   court the hot key founded, meta first — and is repeatable, so the ledger
+   key can later hand over to a multisig. Signing the `addpkg` with the
+   ledger key itself remains possible; it changes nothing below except that
+   this step is skipped.
+7. If a burn share other than 1000 is wanted: `SetBurnBps` — the ledger key's
+   call from here on.
+8. Post-deploy asserts: `BurnSink()` is not the V2 sink; `CourtEscrow("meta")`
+   is the new realm's address; `DirectoryAdmin()` is the ledger key and
+   `IsCourtMod("meta", <ledger>)` is true while the hot key is neither;
+   `BurnBps() == 1000`; `TestClockFabricated() == false`; `CourtCount() ≥ 2`;
    `ReserveGNOT("meta") == 0`; `CourtOneWay("meta") == true`.
-8. Then, in order: a guilds realm importing V3 signed by the same key (so the
-   overlay derives its path); `kourtchat.service`'s `--archive-realm` and
+9. Then, in order: a guilds realm importing V3 signed by the hot key (same
+   namespace as the realm, so the overlay derives its path); `kourtchat.service`'s `--archive-realm` and
    `--guild-realm`; the overlay stamp (`SITE_PKG`, and `SITE_PKG_PREV` for the
    "earlier generation" block); `kourtguildctl` and `internal/binding`
    defaults (whose `no such court` match must accept any generation's prefix);

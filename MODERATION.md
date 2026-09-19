@@ -2299,7 +2299,12 @@ decision must be made before launch, not after.
   `AddGlobalMod`, `RemoveGlobalMod`, `TransferGlobalAdmin` and
   `SetPurgeThreshold`. All four share one body, all four were deletable without a
   test noticing, and all four are now pinned — **verified separately**, because one
-  fixture claimed to catch four and catching one is the trap.
+  fixture claimed to catch four and catching one is the trap. A fifth verb,
+  `HandOver` (handover.gno), moves every seat the deployer holds at once — the
+  admin seat with the caller unseated, `directoryAdmin`, and the creator and
+  moderator seat of each court the caller founded — and clears the banked
+  approvals of every set it changes; it exists so the realm can be deployed from
+  a hot key and owned by a cold one (TWOWAY.md §10).
   - **The assertion is the pending count, not the behaviour.** Bank one approval,
     make the change, require the count to be **zero**. Driving it through
     fire/no-fire would need a third approver per case and would have to fire
