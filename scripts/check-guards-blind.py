@@ -45,7 +45,7 @@ SCRIPTS = ROOT / "scripts"
 # tree themselves. Named with the reason so the list cannot quietly grow.
 SKIP = {
     "check-live-reads": "queries a running node",
-    "check-isolation": "runs the realm suite once per test, tens of minutes",
+    "check-isolation": "needs a gno toolchain and a Go build of harness/isolation",
     "check-mutation-scope": "drives mutate.py over the corpus",
     "check-mutant-collisions": "drives mutate.py over the corpus",
     "check-guards-blind": "this file",

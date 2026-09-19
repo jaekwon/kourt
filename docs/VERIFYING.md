@@ -125,8 +125,12 @@ working and the only symptom is a launch failing on a quorum nobody was told
 about. Both sides are evaluated rather than compared as text, since the code
 writes a week as `7 * 24 * 60 * 60 / 5` and the doc writes the product.
 
-A fifth runs on its own, because it is slow: `make isolation-test` runs every
-realm test as the ONLY test that runs. A gno test file shares package state,
+A fifth runs on its own: `make isolation-test` runs every realm test as the
+ONLY test that runs — one process per package, one fresh store layer per test
+(`harness/isolation`), a few minutes for the tree. It used to be one `gno test`
+process per test and the better part of an hour, which is why it was ever
+separate; it stays separate because a few minutes is still not a per-commit
+cost. A gno test file shares package state,
 and these suites reset the trees and the supply but not the kind registry and
 not the clock — so a test can pass because of what ran before it. Two shapes to
 watch for: a test asserting messages that need a kind a neighbour registered,

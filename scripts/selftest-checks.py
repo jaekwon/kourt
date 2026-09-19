@@ -1719,12 +1719,34 @@ else:
     # harvester finds and `-run` misses. Measured across the tree — every one of the
     # 751 `func Test*` declarations has a real test signature (564 crossing, 187
     # plain) — so the hole is latent today and only a mutated filter can reach it.
+    #
+    # The same hole in the fast path's shape. The guard now hands harness/isolation
+    # ONE alternation per package, `^(A|B|C)$`, and the runner exits 0 having run
+    # nothing when that selects nothing; the missing RESULT line is the only
+    # evidence. The plant mangles the LAST alternative only — `^(A|BzzzNOMATCH)$`
+    # — which proves the single-name case: --only selects exactly one test per
+    # package here (the name exists in kourtv2 and kourtv3), so the one alternative
+    # is the last one. A multi-name package would still run its other names; that
+    # is the filter working, not the hole.
     control("a test that never ran is not a pass",
+            os.path.join(REPO, "scripts/check-isolation.py"),
+            '"|".join(map(re.escape, names)) + ")$"',
+            '"|".join(map(re.escape, names)) + "zzzNOMATCH)$"',
+            "never ran at all",
+            argv=["python3", "scripts/check-isolation.py",
+                  "--only", "TestARefilingIsLegalExactlyAtTheDeathDeadline"])
+
+    # The old per-process path is still reachable behind --slow, for cross-checking
+    # the fast one, and a reachable path with an uncontrolled NEVER classification
+    # is a path that could go quiet without anybody noticing. This is the arm the
+    # fast-path arm above was re-aimed from, run with --slow so it still lands on
+    # the loop it plants in.
+    control("a test that never ran is not a pass (--slow)",
             os.path.join(REPO, "scripts/check-isolation.py"),
             'f"^{t}$", "-v"',
             'f"^{t}zzzNOMATCH$", "-v"',
             "never ran at all",
-            argv=["python3", "scripts/check-isolation.py",
+            argv=["python3", "scripts/check-isolation.py", "--slow",
                   "--only", "TestARefilingIsLegalExactlyAtTheDeathDeadline"])
 
     # mutate.py takes its work on stdin rather than from a file it owns, so its
